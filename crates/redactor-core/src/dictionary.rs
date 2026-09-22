@@ -55,7 +55,10 @@ impl Matcher {
             .expect("literal patterns always compile");
         Some(Self {
             automaton,
-            strict: entries.iter().map(|(p, _)| p.chars().count() < MIN_SUBSTRING_LEN).collect(),
+            strict: entries
+                .iter()
+                .map(|(p, _)| p.chars().count() < MIN_SUBSTRING_LEN)
+                .collect(),
             kinds: entries.into_iter().map(|(_, k)| k).collect(),
         })
     }
@@ -88,7 +91,12 @@ pub(crate) struct Dictionary {
 }
 
 impl Dictionary {
-    pub fn new(clients: &[String], users: &[String], hosts: &[String], terms: &[CustomTerm]) -> Self {
+    pub fn new(
+        clients: &[String],
+        users: &[String],
+        hosts: &[String],
+        terms: &[CustomTerm],
+    ) -> Self {
         let client_entries: Vec<_> = clients
             .iter()
             .flat_map(|c| client_variants(c))
@@ -111,7 +119,10 @@ impl Dictionary {
 
     /// Finds every configured term in `text`.
     pub fn find(&self, text: &str) -> Vec<TermMatch> {
-        self.all.as_ref().map(|m| m.find(text).collect()).unwrap_or_default()
+        self.all
+            .as_ref()
+            .map(|m| m.find(text).collect())
+            .unwrap_or_default()
     }
 
     /// Byte ranges of client names in `text`.
@@ -190,7 +201,13 @@ mod tests {
     fn expands_client_spellings() {
         assert_eq!(
             client_variants("Globex Bank"),
-            ["globex bank", "globex-bank", "globex.bank", "globex_bank", "globexbank"]
+            [
+                "globex bank",
+                "globex-bank",
+                "globex.bank",
+                "globex_bank",
+                "globexbank"
+            ]
         );
     }
 
@@ -198,7 +215,8 @@ mod tests {
     fn replaces_every_spelling_case_insensitively() {
         let d = dict();
         assert_eq!(
-            d.replace_clients("GlobexBank app on api.globex-bank.example").unwrap(),
+            d.replace_clients("GlobexBank app on api.globex-bank.example")
+                .unwrap(),
             "[CLIENT] app on api.[CLIENT].example"
         );
         assert_eq!(d.replace_clients("nothing here"), None);
@@ -207,7 +225,10 @@ mod tests {
     #[test]
     fn short_terms_need_word_boundaries() {
         let d = dict();
-        assert_eq!(d.replace_clients("x-gbx-token").unwrap(), "x-[CLIENT]-token");
+        assert_eq!(
+            d.replace_clients("x-gbx-token").unwrap(),
+            "x-[CLIENT]-token"
+        );
         assert_eq!(d.replace_clients("aGBXz91"), None);
     }
 
@@ -220,7 +241,11 @@ mod tests {
             .collect();
         assert_eq!(
             kinds,
-            [TermKind::User, TermKind::Host, TermKind::Custom("[DEVICE]".into())]
+            [
+                TermKind::User,
+                TermKind::Host,
+                TermKind::Custom("[DEVICE]".into())
+            ]
         );
     }
 

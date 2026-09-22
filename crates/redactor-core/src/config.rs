@@ -173,7 +173,10 @@ mod tests {
         assert!(Config::from_toml("clients = []").is_err());
         assert!(matches!(
             Config::from_toml("[masking]\npii_keep = 1.5"),
-            Err(ConfigError::Ratio { field: "pii_keep", .. })
+            Err(ConfigError::Ratio {
+                field: "pii_keep",
+                ..
+            })
         ));
     }
 

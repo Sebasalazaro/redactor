@@ -115,9 +115,56 @@ pub fn ipv4(ip: &str) -> String {
 
 fn is_private_ipv4(octets: &[&str]) -> bool {
     let n: Vec<u8> = octets.iter().filter_map(|o| o.parse().ok()).collect();
-    matches!(n.as_slice(),
-        [10, ..] | [192, 168, ..] | [169, 254, ..] | [127, ..] | [100, 64..=127, ..])
-        || matches!(n.as_slice(), [172, b, ..] if (16..=31).contains(b))
+    matches!(
+        n.as_slice(),
+        [10, ..] | [192, 168, ..] | [169, 254, ..] | [127, ..] | [100, 64..=127, ..]
+    ) || matches!(n.as_slice(), [172, b, ..] if (16..=31).contains(b))
+}
+
+/// Keeps the first and last four digits of a card number, like a receipt.
+///
+/// ```
+/// use redactor_core::mask::card;
+/// assert_eq!(card("4111 1111 1111 1111"), "4111 **** **** 1111");
+/// ```
+pub fn card(number: &str) -> String {
+    let digits = number.chars().filter(char::is_ascii_digit).count();
+    let mut seen = 0;
+    number
+        .chars()
+        .map(|c| {
+            if !c.is_ascii_digit() {
+                return c;
+            }
+            seen += 1;
+            if seen <= 4 || seen > digits - 4 {
+                c
+            } else {
+                MASK_CHAR
+            }
+        })
+        .collect()
+}
+
+/// Luhn checksum, used to tell card numbers from other long numbers.
+pub fn luhn_valid(number: &str) -> bool {
+    let digits: Vec<u32> = number.chars().filter_map(|c| c.to_digit(10)).collect();
+    if !(13..=19).contains(&digits.len()) {
+        return false;
+    }
+    let sum: u32 = digits
+        .iter()
+        .rev()
+        .enumerate()
+        .map(|(i, &d)| {
+            if i % 2 == 1 {
+                if d * 2 > 9 { d * 2 - 9 } else { d * 2 }
+            } else {
+                d
+            }
+        })
+        .sum();
+    sum % 10 == 0
 }
 
 #[cfg(test)]
@@ -146,6 +193,14 @@ mod tests {
         assert_eq!(secret("123456", 0.3), "…[len=6]");
         let long = "x".repeat(400);
         assert_eq!(secret(&long, 0.3), format!("{}…[len=400]", "x".repeat(12)));
+    }
+
+    #[test]
+    fn card_numbers() {
+        assert!(luhn_valid("4111111111111111"));
+        assert!(!luhn_valid("4111111111111112"));
+        assert!(!luhn_valid("1789996400"));
+        assert_eq!(card("4111-1111-1111-1111"), "4111-****-****-1111");
     }
 
     #[test]
