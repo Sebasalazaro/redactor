@@ -1,4 +1,4 @@
-//! Menu bar icon: redact now, switch engagement, open settings, quit.
+//! Menu bar icon: redact now, open the dashboard, switch engagement, quit.
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
@@ -78,10 +78,10 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
                 true,
                 None::<&str>,
             )?,
-            &MenuItem::with_id(app, "status", status, false, None::<&str>)?,
+            &MenuItem::with_id(app, "dashboard", "Open dashboard…", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "status", status, false, None::<&str>)?,
             &engagements,
-            &MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "quit", "Quit redactor", true, None::<&str>)?,
         ],
@@ -91,7 +91,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 fn on_menu(app: &AppHandle, id: &str) {
     match id {
         "redact" => flow::redact_clipboard(app),
-        "settings" => flow::show(app, DASHBOARD),
+        "dashboard" => flow::show(app, DASHBOARD),
         "quit" => app.exit(0),
         _ => {
             if let Some(name) = id.strip_prefix(ENGAGEMENT_PREFIX) {
