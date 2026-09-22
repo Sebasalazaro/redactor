@@ -64,6 +64,9 @@ token belongs to the account being modified.
   place, while hosts, test users and device names change per test.
 - **Tested against leaks.** Every fixture has planted secrets, and the test
   suite asserts that none of them survive redaction.
+- **Optional AI deep scan.** A local GLiNER model finds what patterns cannot
+  (a person's or company's name in free text). It runs on demand, in a
+  separate process that exits when idle, and is never downloaded by the app.
 
 ## Desktop app
 
@@ -77,6 +80,17 @@ the same config files the CLI uses. Idle, it uses about 70 MB.
 ![Desktop flow: copy traffic, press the hotkey, review, paste](docs/desktop-flow.svg)
 
 See [apps/desktop](apps/desktop) to build it.
+
+### AI deep scan (optional)
+
+```sh
+scripts/fetch-model.sh   # 49 MB, pinned revision, SHA-256 verified
+```
+
+Downloads `knowledgator/gliner-pii-edge-v1.0` (Apache-2.0) into
+`~/.config/redactor/models/`. The review popup then offers **Deep scan (AI)**.
+The model is English-focused, and ONNX Runtime is linked into the app at
+build time.
 
 ## Install (CLI)
 
@@ -165,7 +179,8 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 - [x] **Core engine and CLI:** detectors, masking, configs, golden and leak tests
 - [x] **Desktop app (Tauri):** global hotkey, review popup with a diff, menu bar, settings dashboard
-- [ ] **Local NER (GLiNER, ONNX):** context-aware detection of names and organizations, fully offline
+- [x] **Local NER (GLiNER, ONNX):** on-demand deep scan of names, organizations, usernames, addresses, fully offline
+- [ ] **Multilingual model:** span-level GLiNER models (e.g. `gliner_multi_pii-v1`) for Spanish and other languages
 - [ ] **Reversible mode:** per-engagement mapping encrypted with AES-GCM, key stored in the macOS Keychain, to restore real values in LLM answers
 - [ ] **Optional encrypted history** of redactions
 

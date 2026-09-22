@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- AI deep scan: `redactor-ner` runs GLiNER models locally with ONNX Runtime;
+  the review popup's **Deep scan (AI)** masks names, organizations,
+  usernames, addresses and phone numbers, in a worker process that exits
+  when idle. `scripts/fetch-model.sh` downloads a pinned, hash-checked model.
+- Desktop: single-screen overview with a **Redact clipboard** button; green
+  palette.
 - Desktop dashboard overview: last redaction (copy again / forget), active
   profile, live memory use with *Free memory*, session stats and section
   summaries. Engagements get a card view, quick creation from the sidebar
@@ -35,6 +41,9 @@ All notable changes to this project are documented here. The format follows
   memory drops from 194 MB to 70 MB.
 
 ### Fixed
+- Dashboard edits made just before closing the window were lost.
+- The overview said "nothing yet" after the last redaction expired; it now
+  says why it is gone (kept 60 minutes by default).
 - Client names now match regardless of case and accents (`Añil Pagos` ↔
   `anilpagos`, `BANCO ÉXITO` ↔ `Banco Éxito`), and names of four or more
   letters match inside hostnames (`acme` in `api.acmemilesapp.com`).

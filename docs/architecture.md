@@ -19,7 +19,8 @@ crates/
 │   │       ├── http.rs      # headers, cookies, authorization schemes, curl flags
 │   │       └── keys.rs      # JSON / HAR / Postman / query / form, classified by key
 │   └── tests/            # golden fixtures, leak and determinism tests
-└── redactor-cli/         # `redactor` binary: stdin, files, clipboard
+├── redactor-cli/         # `redactor` binary: stdin, files, clipboard
+└── redactor-ner/         # optional GLiNER inference (ONNX Runtime) + worker protocol
 apps/
 └── desktop/              # Tauri menu bar app (Svelte UI + Rust shell)
 ```
@@ -80,3 +81,21 @@ than domains under those TLDs.
    on overlap.
 4. Add a fictional fixture to `tests/fixtures`, plant the sensitive values in
    `PLANTED`, and bless the golden output.
+
+## AI deep scan
+
+`redactor-ner` runs token-level GLiNER models with ONNX Runtime and the
+`tokenizers` crate, built without their HTTP features. It mirrors GLiNER's
+Python processor: the prompt `<<ENT>> label ... <<SEP>>` precedes the words
+(split with GLiNER's `\w+(?:[-_]\w+)*|\S` pattern), `words_mask` marks the
+first sub-token of each word, and logits `[batch, words, labels, 3]` give the
+start, end and inside probability of every word for every label. Spans are
+decoded, then flattened greedily by score. Long inputs are scanned in
+overlapping windows of 256 words.
+
+ONNX Runtime keeps most of the memory it used after a session is dropped,
+so the desktop app never loads the model in its own process. It starts a
+worker (its own executable with `--ner-worker`) that speaks one JSON object
+per line over stdin/stdout, and ends it when idle. The popup sends the text
+as it would be copied; entities come back with UTF-16 offsets and are applied
+only inside text that is not already redacted.
