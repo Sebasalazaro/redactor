@@ -192,7 +192,9 @@ impl Redactor {
         self.dict.replace_clients(&masked).unwrap_or(masked)
     }
 
-    pub(crate) fn mask_pii(&self, value: &str) -> String {
+    /// Masks personal data with this policy's ratio (client names become
+    /// `[CLIENT]`). Used for values found outside the engine, e.g. by NER.
+    pub fn mask_pii(&self, value: &str) -> String {
         let keep = self.masking.pii_keep;
         self.dict
             .mask_around_clients(value, |s| mask::keep_head(s, keep))
