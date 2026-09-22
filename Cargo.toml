@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = ["crates/redactor-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["Shiki"]
+keywords = ["security", "pentest", "redaction", "privacy", "llm"]
+categories = ["command-line-utilities", "text-processing"]
+
+[workspace.dependencies]
+aho-corasick = "1"
+anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+thiserror = "2"
+toml = "0.8"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

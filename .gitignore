@@ -1,0 +1,8 @@
+/target
+**/*.rs.bk
+.DS_Store
+
+# Local configuration and engagement data must never be committed.
+*.local.toml
+/engagements/
+/.redactor/
