@@ -19,3 +19,8 @@ All notable changes to this project are documented here. The format follows
 - `redactor` CLI with stdin, file and clipboard modes, `--report`, `--json`
   and `--init`.
 - Golden, leak and determinism tests over fictional fixtures.
+
+### Fixed
+- Client names now match regardless of case and accents (`Añil Pagos` ↔
+  `anilpagos`, `BANCO ÉXITO` ↔ `Banco Éxito`), and names of four or more
+  letters match inside hostnames (`acme` in `api.acmemilesapp.com`).
