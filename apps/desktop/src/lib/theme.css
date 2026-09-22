@@ -7,9 +7,13 @@
   --border: #e2e4e8;
   --text: #16181d;
   --muted: #5d6470;
-  --accent: #c47a06;
-  --accent-strong: #a86500;
-  --accent-soft: #fdf1dc;
+  /* Brand: deep greens paired with light greens. */
+  --accent: #15803d;
+  --accent-strong: #166534;
+  --accent-soft: #dcfce7;
+  --primary-bg: #14532d;
+  --primary-bg-hover: #166534;
+  --primary-fg: #dcfce7;
   --danger: #c2362b;
   --danger-soft: #fde8e6;
   --ok: #1f8a4c;
@@ -38,9 +42,12 @@
     --border: #2c313b;
     --text: #e6e8ec;
     --muted: #979eab;
-    --accent: #f5a524;
-    --accent-strong: #ffbb4d;
-    --accent-soft: #3a2a0d;
+    --accent: #4ade80;
+    --accent-strong: #86efac;
+    --accent-soft: #10291a;
+    --primary-bg: #166534;
+    --primary-bg-hover: #15803d;
+    --primary-fg: #dcfce7;
     --danger: #ff6b5e;
     --danger-soft: #3d1a17;
     --ok: #4ccf82;
@@ -102,20 +109,20 @@ textarea {
   background: var(--surface-2);
 }
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #1b1200;
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+  color: var(--primary-fg);
   font-weight: 600;
 }
 .btn.primary:hover {
-  background: var(--accent-strong);
+  background: var(--primary-bg-hover);
 }
 .btn.danger {
   color: var(--danger);
 }
 .btn.primary kbd {
-  border-color: rgb(0 0 0 / 0.25);
-  background: rgb(255 255 255 / 0.35);
+  border-color: rgb(255 255 255 / 0.25);
+  background: rgb(255 255 255 / 0.12);
   color: inherit;
 }
 .btn:disabled {

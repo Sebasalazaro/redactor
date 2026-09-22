@@ -3,20 +3,20 @@
   <desc id="d">Copy traffic, press the hotkey, review the redacted diff, press Enter and paste into the LLM.</desc>
   <style>
     .box { fill: #ffffff; stroke: #d6d9de; }
-    .key { fill: #fdf1dc; stroke: #c47a06; }
+    .key { fill: #dcfce7; stroke: #15803d; }
     .t { fill: #16181d; font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     .s { fill: #5d6470; font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .k { fill: #a86500; font: 600 15px ui-monospace, "SF Mono", Menlo, monospace; }
+    .k { fill: #166534; font: 600 15px ui-monospace, "SF Mono", Menlo, monospace; }
     .a { stroke: #9aa1ad; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
     .ah { fill: #9aa1ad; }
-    .bar { fill: #f5a524; }
+    .bar { fill: #4ade80; }
     .txt { fill: #c9ced6; }
     @media (prefers-color-scheme: dark) {
       .box { fill: #181b21; stroke: #2c313b; }
-      .key { fill: #3a2a0d; stroke: #f5a524; }
+      .key { fill: #10291a; stroke: #4ade80; }
       .t { fill: #e6e8ec; }
       .s { fill: #979eab; }
-      .k { fill: #ffbb4d; }
+      .k { fill: #86efac; }
       .txt { fill: #4a515d; }
     }
   </style>
