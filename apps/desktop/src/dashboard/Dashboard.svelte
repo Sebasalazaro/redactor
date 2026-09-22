@@ -1,156 +1,99 @@
 <script lang="ts">
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
-  import { api, normalizeConfig, type AppSettings, type Config, type Status } from "../lib/api";
-  import HotkeyField from "./components/HotkeyField.svelte";
+  import { api, type AppSettings, type Config, type Engagement, type Status } from "../lib/api";
+  import { Autosave } from "../lib/autosave.svelte";
+  import NewEngagement from "./components/NewEngagement.svelte";
   import Playground from "./components/Playground.svelte";
-  import RulesEditor from "./components/RulesEditor.svelte";
+  import Engagements from "./pages/Engagements.svelte";
+  import GlobalRules from "./pages/GlobalRules.svelte";
+  import Overview from "./pages/Overview.svelte";
+  import Settings from "./pages/Settings.svelte";
 
-  type Section = "general" | "global" | "engagements" | "playground";
-  const SECTIONS: { id: Section; label: string }[] = [
-    { id: "general", label: "General" },
-    { id: "global", label: "Global rules" },
-    { id: "engagements", label: "Engagements" },
-    { id: "playground", label: "Playground" },
-  ];
+  type Section = "overview" | "engagements" | "global" | "playground" | "settings";
 
-  let section = $state<Section>("general");
+  let section = $state<Section>("overview");
   let status = $state<Status | null>(null);
   let settings = $state<AppSettings | null>(null);
   let global = $state<Config | null>(null);
-  let engagements = $state<string[]>([]);
-  let selected = $state<string | null>(null);
-  let engagement = $state<Config | null>(null);
-  let newName = $state("");
-  let confirmDelete = $state(false);
-  let toast = $state<{ text: string; ok: boolean } | null>(null);
+  let engagements = $state<Engagement[]>([]);
+  let editing = $state<string | null>(null);
+  let quickCreate = $state(false);
 
-  function notify(text: string, ok = true) {
-    toast = { text, ok };
-    setTimeout(() => (toast = null), 3000);
-  }
-
-  async function run(action: () => Promise<unknown>, done: string) {
-    try {
-      await action();
-      notify(done);
-      status = await api.getStatus();
-    } catch (e) {
-      notify(String(e), false);
-    }
-  }
-
-  // Autosave: every edit is written shortly after the user stops typing.
-  // `saved` holds the last JSON written (or loaded) per document, so loading
-  // a document never triggers a save.
-  type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
-  let saveState = $state<SaveState>("idle");
-  let saveError = $state("");
-  const saved = new Map<string, string>();
-  const timers = new Map<string, ReturnType<typeof setTimeout>>();
-
-  function markSaved(key: string, value: unknown) {
-    saved.set(key, JSON.stringify(value));
-  }
-
-  function autosave(key: string, value: unknown, save: () => Promise<unknown>) {
-    const json = JSON.stringify(value);
-    if (!saved.has(key) || saved.get(key) === json) return;
-    saveState = "pending";
-    clearTimeout(timers.get(key));
-    timers.set(
-      key,
-      setTimeout(async () => {
-        saveState = "saving";
-        try {
-          await save();
-          saved.set(key, json);
-          saveState = "saved";
-          status = await api.getStatus();
-        } catch (e) {
-          saveState = "error";
-          saveError = String(e);
-        }
-      }, 500),
-    );
-  }
+  const autosave = new Autosave();
+  const active = $derived(engagements.find((e) => e.id === settings?.active_engagement) ?? null);
 
   $effect(() => {
     if (!settings) return;
     const value = $state.snapshot(settings);
-    autosave("settings", value, () => api.saveSettings(value));
+    autosave.track("settings", value, () => api.saveSettings(value));
   });
 
   $effect(() => {
     if (!global) return;
     const value = $state.snapshot(global);
-    autosave("global", value, () => api.saveGlobal(value));
-  });
-
-  $effect(() => {
-    if (!engagement || !selected) return;
-    const name = selected;
-    const value = $state.snapshot(engagement);
-    autosave(`engagement:${name}`, value, () => api.saveEngagement(name, value));
+    autosave.track("global", value, async () => {
+      await api.saveGlobal(value);
+      status = await api.getStatus();
+    });
   });
 
   async function loadAll() {
-    [status, settings, global, engagements] = await Promise.all([
+    const [s, st, g, e] = await Promise.all([
       api.getStatus(),
       api.getSettings(),
       api.getGlobal(),
       api.listEngagements(),
     ]);
-    markSaved("settings", settings);
-    markSaved("global", global);
-    if (selected && engagements.includes(selected)) await select(selected);
+    autosave.mark("settings", st);
+    autosave.mark("global", g);
+    [status, settings, global, engagements] = [s, st, g, e];
   }
 
-  async function select(name: string) {
-    selected = name;
-    confirmDelete = false;
-    const loaded = await api.getEngagement(name);
-    markSaved(`engagement:${name}`, loaded);
-    engagement = loaded;
+  async function refreshEngagements() {
+    engagements = await api.listEngagements();
   }
 
-  async function create() {
-    const name = newName.trim();
-    if (!name) return;
-    await run(async () => {
-      await api.saveEngagement(name, normalizeConfig({ name }));
-      engagements = await api.listEngagements();
-      newName = "";
-      await select(name);
-    }, `Created ${name}`);
+  /** Switching profile is saved right away, not debounced. */
+  async function activate(id: string | null) {
+    if (!settings) return;
+    settings.active_engagement = id;
+    const value = $state.snapshot(settings);
+    await autosave.now("settings", value, () => api.saveSettings(value));
   }
 
-  async function remove() {
-    if (!selected) return;
-    if (!confirmDelete) {
-      confirmDelete = true;
-      return;
-    }
-    const name = selected;
-    await run(async () => {
-      await api.deleteEngagement(name);
-      selected = null;
-      engagement = null;
-      await loadAll();
-    }, `Deleted ${name}`);
+  async function created(id: string, makeActive: boolean) {
+    quickCreate = false;
+    await refreshEngagements();
+    if (makeActive) await activate(id);
+    editing = id;
+    section = "engagements";
+  }
+
+  function navigate(to: Section, engagement?: string) {
+    section = to;
+    if (to === "engagements") editing = engagement ?? null;
   }
 
   onMount(() => {
     loadAll();
     const unlisten = listen("settings-changed", async () => {
       const fresh = await api.getSettings();
-      markSaved("settings", fresh);
+      autosave.mark("settings", fresh);
       settings = fresh;
     });
     return () => {
       unlisten.then((f) => f());
     };
   });
+
+  const NAV: { id: Section; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "engagements", label: "Engagements" },
+    { id: "global", label: "Global rules" },
+    { id: "playground", label: "Playground" },
+    { id: "settings", label: "Settings" },
+  ];
 </script>
 
 <div class="layout">
@@ -159,126 +102,93 @@
       <span class="logo" aria-hidden="true"><i></i><i></i><i></i></span>
       redactor
     </div>
-    {#each SECTIONS as s (s.id)}
-      <button class:active={section === s.id} onclick={() => (section = s.id)}>{s.label}</button>
-    {/each}
+
     {#if settings}
       <div class="profile">
-        Active profile
-        <strong>{settings.active_engagement ?? "global"}</strong>
+        <label for="profile">Active profile</label>
+        <select
+          id="profile"
+          class="text"
+          value={settings.active_engagement ?? ""}
+          onchange={(e) => activate(e.currentTarget.value || null)}
+        >
+          <option value="">Global only</option>
+          {#each engagements as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
+        </select>
+        <button class="link" onclick={() => (quickCreate = !quickCreate)}>
+          {quickCreate ? "Cancel" : "+ New engagement"}
+        </button>
+        {#if quickCreate}
+          <NewEngagement compact oncreated={(id) => created(id, true)} />
+        {/if}
       </div>
     {/if}
-  </nav>
 
-  <main>
-    <div class="save-state" class:bad={saveState === "error"} aria-live="polite">
-      {#if saveState === "pending" || saveState === "saving"}
+    {#each NAV as item (item.id)}
+      <button class="nav" class:active={section === item.id} onclick={() => navigate(item.id)}>
+        {item.label}
+        {#if item.id === "engagements" && engagements.length}
+          <span class="count">{engagements.length}</span>
+        {/if}
+      </button>
+    {/each}
+
+    <div class="save-state" class:bad={autosave.state === "error"} aria-live="polite">
+      {#if autosave.state === "pending" || autosave.state === "saving"}
         Saving…
-      {:else if saveState === "saved"}
+      {:else if autosave.state === "saved"}
         ✓ All changes saved
-      {:else if saveState === "error"}
-        Couldn't save: {saveError}
+      {:else if autosave.state === "error"}
+        Couldn't save: {autosave.error}
       {:else}
         Changes save automatically
       {/if}
     </div>
+  </nav>
+
+  <main>
     {#if status?.error}
       <div class="banner">Configuration error: {status.error}</div>
     {/if}
 
-    {#if section === "general" && settings}
-      <h2>General</h2>
-      <div class="rows">
-        <div class="row">
-          <div>
-            <strong>Hotkey</strong>
-            <p>Redacts the clipboard from any app.</p>
-          </div>
-          <HotkeyField bind:hotkey={settings.hotkey} />
-        </div>
-        <div class="row">
-          <div>
-            <strong>Review before copying</strong>
-            <p>Show the popup with the diff. When off, the clipboard is replaced right away.</p>
-          </div>
-          <input type="checkbox" class="toggle" bind:checked={settings.review} />
-        </div>
-        <div class="row">
-          <div>
-            <strong>Active engagement</strong>
-            <p>Layered on top of the global rules. Also switchable from the menu bar.</p>
-          </div>
-          <select
-            value={settings.active_engagement ?? ""}
-            onchange={(e) => settings && (settings.active_engagement = e.currentTarget.value || null)}
-          >
-            <option value="">None (global only)</option>
-            {#each engagements as name (name)}<option value={name}>{name}</option>{/each}
-          </select>
-        </div>
-        <div class="row">
-          <div>
-            <strong>Config folder</strong>
-            <p>Shared with the <code>redactor</code> CLI. Files are readable only by you.</p>
-          </div>
-          <code class="path">{status?.config_dir}</code>
-        </div>
-      </div>
-    {:else if section === "global" && global}
-      <h2>Global rules</h2>
-      <p class="lead">Apply to every engagement. Put the client's name here.</p>
-      <RulesEditor bind:config={global} scope="global" />
-    {:else if section === "engagements"}
-      <h2>Engagements</h2>
-      <div class="split">
-        <aside>
-          {#each engagements as name (name)}
-            <button class:active={selected === name} onclick={() => select(name)}>
-              {name}
-              {#if settings?.active_engagement === name}<span class="dot" title="Active"></span>{/if}
-            </button>
-          {:else}
-            <p class="lead">No engagements yet.</p>
-          {/each}
-          <form
-            onsubmit={(e) => {
-              e.preventDefault();
-              create();
-            }}
-          >
-            <input bind:value={newName} placeholder="new-engagement" aria-label="New engagement name" />
-            <button class="btn" type="submit">Add</button>
-          </form>
-        </aside>
-        <section>
-          {#if engagement && selected}
-            <div class="engagement-head">
-              <h3>{selected}</h3>
-              <button class="btn danger" onclick={remove}>
-                {confirmDelete ? "Click again to delete" : "Delete"}
-              </button>
-            </div>
-            <RulesEditor bind:config={engagement} scope="engagement" />
-          {:else}
-            <p class="lead">Pick an engagement or create one. Names become file names.</p>
-          {/if}
-        </section>
-      </div>
-    {:else if section === "playground"}
-      <h2>Playground</h2>
-      <Playground />
+    {#if settings && global}
+      {#if section === "overview"}
+        <Overview
+          {settings}
+          {global}
+          {engagements}
+          onnavigate={navigate}
+          onactivate={activate}
+          oncreated={created}
+        />
+      {:else if section === "engagements"}
+        <Engagements
+          {settings}
+          {global}
+          {engagements}
+          bind:editing
+          {autosave}
+          onactivate={activate}
+          oncreated={created}
+          onchanged={refreshEngagements}
+        />
+      {:else if section === "global"}
+        <GlobalRules bind:global {engagements} />
+      {:else if section === "playground"}
+        <h2>Playground</h2>
+        <p class="muted">Profile: {active?.name ?? "global only"}</p>
+        <Playground />
+      {:else if section === "settings"}
+        <Settings bind:settings {status} />
+      {/if}
     {/if}
   </main>
-
-  {#if toast}
-    <div class="toast" class:bad={!toast.ok} role="status">{toast.text}</div>
-  {/if}
 </div>
 
 <style>
   .layout {
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 220px 1fr;
     height: 100%;
   }
   nav {
@@ -288,12 +198,13 @@
     padding: 16px 10px;
     border-right: 1px solid var(--border);
     background: var(--surface);
+    overflow: auto;
   }
   .brand {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 8px 16px;
+    margin: 0 8px 14px;
     font-weight: 700;
     font-size: 15px;
   }
@@ -316,134 +227,68 @@
   .logo i:nth-child(3) {
     width: 15px;
   }
-  nav > button,
-  aside > button {
-    text-align: left;
+  .profile {
+    display: grid;
+    gap: 6px;
+    margin: 0 4px 14px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+  .profile label {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .profile .link {
+    justify-self: start;
+    font-size: 12px;
+  }
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 7px 10px;
     border: 0;
     border-radius: 6px;
     background: none;
+    text-align: left;
     cursor: pointer;
   }
-  nav > button:hover,
-  aside > button:hover {
+  .nav:hover {
     background: var(--surface-2);
   }
-  nav > button.active,
-  aside > button.active {
+  .nav.active {
     background: var(--accent-soft);
     color: var(--accent-strong);
     font-weight: 600;
   }
-  .profile {
-    margin-top: auto;
-    padding: 10px;
-    display: grid;
+  .count {
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--surface-2);
     color: var(--muted);
-    font-size: 12px;
-  }
-  .profile strong {
-    color: var(--text);
-    font: 12px var(--mono);
-  }
-  main {
-    overflow: auto;
-    padding: 24px 32px 40px;
-  }
-  h2 {
-    margin: 0 0 16px;
-    font-size: 20px;
-  }
-  h3 {
-    margin: 0;
-  }
-  .lead,
-  .row p {
-    color: var(--muted);
-    margin: 2px 0 16px;
-  }
-  .rows {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 14px 16px;
-  }
-  .row + .row {
-    border-top: 1px solid var(--border);
-  }
-  .row p {
-    margin: 2px 0 0;
-    font-size: 12px;
-  }
-  .toggle {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
-  }
-  select,
-  form input {
-    padding: 5px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-  }
-  .path {
-    font-size: 12px;
-    color: var(--muted);
-  }
-  main {
-    position: relative;
+    font-size: 11px;
+    font-weight: 500;
   }
   .save-state {
-    position: absolute;
-    top: 28px;
-    right: 32px;
+    margin-top: auto;
+    padding: 10px;
     color: var(--muted);
     font-size: 12px;
   }
   .save-state.bad {
     color: var(--danger);
   }
-  .split {
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 24px;
+  main {
+    overflow: auto;
+    padding: 24px 32px 40px;
   }
-  aside {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  aside form {
-    display: flex;
-    gap: 6px;
-    margin-top: 12px;
-  }
-  aside form input {
-    min-width: 0;
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 12px;
-  }
-  .dot {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    margin-left: 6px;
-    border-radius: 50%;
-    background: var(--ok);
-  }
-  .engagement-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
+  main > h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
   }
   .banner {
     margin-bottom: 16px;
@@ -451,19 +296,5 @@
     border-radius: var(--radius);
     background: var(--danger-soft);
     color: var(--danger);
-  }
-  .toast {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    padding: 10px 14px;
-    border-radius: var(--radius);
-    background: var(--text);
-    color: var(--bg);
-    box-shadow: 0 6px 24px rgb(0 0 0 / 0.2);
-  }
-  .toast.bad {
-    background: var(--danger);
-    color: #fff;
   }
 </style>

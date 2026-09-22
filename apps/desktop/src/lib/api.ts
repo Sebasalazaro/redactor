@@ -55,6 +55,39 @@ export interface AppSettings {
   hotkey: string;
   active_engagement: string | null;
   review: boolean;
+  keep_last: boolean;
+  forget_last_after_minutes: number;
+  clear_clipboard_on_cancel: boolean;
+  unload_windows: boolean;
+}
+
+export interface Engagement {
+  id: string;
+  name: string;
+  config: Config;
+}
+
+export interface Memory {
+  app_bytes: number;
+  webview_bytes: number;
+  webview_processes: number;
+  system_total: number;
+  system_used: number;
+}
+
+export interface LastRedaction {
+  output: string;
+  format: string;
+  categories: [Category, number][];
+  engagement: string | null;
+  age_secs: number;
+}
+
+export interface Overview {
+  last: LastRedaction | null;
+  memory: Memory;
+  redactions: number;
+  uptime_secs: number;
 }
 
 export interface Status {
@@ -90,7 +123,16 @@ export const api = {
   saveSettings: (settings: AppSettings) => invoke<void>("save_settings", { settings }),
   getGlobal: async () => normalizeConfig(await invoke<Partial<Config>>("get_global")),
   saveGlobal: (config: Config) => invoke<void>("save_global", { config }),
-  listEngagements: () => invoke<string[]>("list_engagements"),
+  listEngagements: async () =>
+    (await invoke<(Omit<Engagement, "config"> & { config: Partial<Config> })[]>("list_engagements")).map(
+      (e) => ({ ...e, config: normalizeConfig(e.config) }),
+    ),
+  createEngagement: (name: string) => invoke<string>("create_engagement", { name }),
+  getOverview: () => invoke<Overview>("get_overview"),
+  copyLast: () => invoke<void>("copy_last"),
+  clearLast: () => invoke<void>("clear_last"),
+  clearClipboard: () => invoke<void>("clear_clipboard"),
+  freeMemory: () => invoke<{ released_bytes: number; memory: Memory }>("free_memory"),
   getEngagement: async (name: string) =>
     normalizeConfig(await invoke<Partial<Config>>("get_engagement", { name })),
   saveEngagement: (name: string, config: Config) =>

@@ -64,18 +64,31 @@
     error = null;
   }
 
+  /** Drops the texts from this page's memory before the window goes away. */
+  function forget() {
+    review = null;
+    items = [];
+  }
+
   async function confirm() {
     try {
-      await api.finishReview(compose(items));
+      const text = compose(items);
+      forget();
+      await api.finishReview(text);
     } catch (e) {
       error = String(e);
     }
   }
 
+  function cancel() {
+    forget();
+    api.cancelReview();
+  }
+
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
-      api.cancelReview();
+      cancel();
     } else if (e.key === "Enter" && !e.shiftKey && review) {
       e.preventDefault();
       confirm();
@@ -144,7 +157,7 @@
       {#if error}<span class="error">{error}</span>{/if}
     </div>
     <div class="actions">
-      <button class="btn" onclick={() => api.cancelReview()}>Cancel <kbd>Esc</kbd></button>
+      <button class="btn" onclick={cancel}>Cancel <kbd>Esc</kbd></button>
       <button class="btn primary" onclick={confirm} disabled={!review}>Copy <kbd>↵</kbd></button>
     </div>
   </footer>

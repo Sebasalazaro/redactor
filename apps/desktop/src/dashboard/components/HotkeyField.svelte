@@ -2,23 +2,10 @@
   // Records a key combination and writes it in Tauri accelerator syntax.
   let { hotkey = $bindable() }: { hotkey: string } = $props();
 
+  import { hotkey as pretty } from "../../lib/format";
+
   let recording = $state(false);
   const isMac = navigator.platform.toLowerCase().includes("mac");
-
-  // macOS lists modifiers as ⌃⌥⇧⌘ before the key.
-  const MAC_ORDER: [string, string][] = [
-    ["Control", "⌃"],
-    ["Alt", "⌥"],
-    ["Shift", "⇧"],
-    ["CommandOrControl", "⌘"],
-  ];
-
-  function pretty(accel: string) {
-    if (!isMac) return accel.replace("CommandOrControl", "Ctrl");
-    const parts = accel.split("+");
-    const mods = MAC_ORDER.filter(([name]) => parts.includes(name)).map(([, s]) => s);
-    return mods.join("") + parts[parts.length - 1];
-  }
 
   function onKeydown(e: KeyboardEvent) {
     if (!recording) return;
