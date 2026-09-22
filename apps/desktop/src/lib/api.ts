@@ -83,8 +83,11 @@ export interface LastRedaction {
   age_secs: number;
 }
 
+export type ForgottenReason = "expired" | "cleared" | "freed" | "disabled";
+
 export interface Overview {
   last: LastRedaction | null;
+  forgotten: { reason: ForgottenReason; secs_ago: number } | null;
   memory: Memory;
   redactions: number;
   uptime_secs: number;
@@ -129,6 +132,8 @@ export const api = {
     ),
   createEngagement: (name: string) => invoke<string>("create_engagement", { name }),
   getOverview: () => invoke<Overview>("get_overview"),
+  redactNow: () => invoke<void>("redact_now"),
+  closeWindow: () => invoke<void>("close_window"),
   copyLast: () => invoke<void>("copy_last"),
   clearLast: () => invoke<void>("clear_last"),
   clearClipboard: () => invoke<void>("clear_clipboard"),

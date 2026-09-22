@@ -1,9 +1,8 @@
 <script lang="ts">
   import { listen } from "@tauri-apps/api/event";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { api, type AppSettings, type Config, type Engagement, type Status } from "../lib/api";
-  import { Autosave } from "../lib/autosave.svelte";
-  import NewEngagement from "./components/NewEngagement.svelte";
+  import { Autosave, COMMIT_DRAFTS } from "../lib/autosave.svelte";
   import Playground from "./components/Playground.svelte";
   import Engagements from "./pages/Engagements.svelte";
   import GlobalRules from "./pages/GlobalRules.svelte";
@@ -18,7 +17,6 @@
   let global = $state<Config | null>(null);
   let engagements = $state<Engagement[]>([]);
   let editing = $state<string | null>(null);
-  let quickCreate = $state(false);
 
   const autosave = new Autosave();
   const active = $derived(engagements.find((e) => e.id === settings?.active_engagement) ?? null);
@@ -63,7 +61,6 @@
   }
 
   async function created(id: string, makeActive: boolean) {
-    quickCreate = false;
     await refreshEngagements();
     if (makeActive) await activate(id);
     editing = id;
@@ -75,15 +72,27 @@
     if (to === "engagements") editing = engagement ?? null;
   }
 
+  /** Saves everything still pending, then lets the window close. */
+  async function closeSafely() {
+    // Commit half-typed values, let effects schedule their saves, run them.
+    window.dispatchEvent(new Event(COMMIT_DRAFTS));
+    await tick();
+    await autosave.flush();
+    await api.closeWindow();
+  }
+
   onMount(() => {
     loadAll();
-    const unlisten = listen("settings-changed", async () => {
-      const fresh = await api.getSettings();
-      autosave.mark("settings", fresh);
-      settings = fresh;
-    });
+    const unlisteners = [
+      listen("settings-changed", async () => {
+        const fresh = await api.getSettings();
+        autosave.mark("settings", fresh);
+        settings = fresh;
+      }),
+      listen("close-requested", closeSafely),
+    ];
     return () => {
-      unlisten.then((f) => f());
+      unlisteners.forEach((u) => u.then((f) => f()));
     };
   });
 
@@ -103,27 +112,6 @@
       redactor
     </div>
 
-    {#if settings}
-      <div class="profile">
-        <label for="profile">Active profile</label>
-        <select
-          id="profile"
-          class="text"
-          value={settings.active_engagement ?? ""}
-          onchange={(e) => activate(e.currentTarget.value || null)}
-        >
-          <option value="">Global only</option>
-          {#each engagements as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
-        </select>
-        <button class="link" onclick={() => (quickCreate = !quickCreate)}>
-          {quickCreate ? "Cancel" : "+ New engagement"}
-        </button>
-        {#if quickCreate}
-          <NewEngagement compact oncreated={(id) => created(id, true)} />
-        {/if}
-      </div>
-    {/if}
-
     {#each NAV as item (item.id)}
       <button class="nav" class:active={section === item.id} onclick={() => navigate(item.id)}>
         {item.label}
@@ -133,20 +121,27 @@
       </button>
     {/each}
 
-    <div class="save-state" class:bad={autosave.state === "error"} aria-live="polite">
-      {#if autosave.state === "pending" || autosave.state === "saving"}
-        Saving…
-      {:else if autosave.state === "saved"}
-        ✓ All changes saved
-      {:else if autosave.state === "error"}
-        Couldn't save: {autosave.error}
-      {:else}
-        Changes save automatically
+    <div class="footer">
+      <div class="save-state" class:bad={autosave.state === "error"} aria-live="polite">
+        {#if autosave.state === "pending" || autosave.state === "saving"}
+          Saving…
+        {:else if autosave.state === "saved"}
+          ✓ All changes saved
+        {:else if autosave.state === "error"}
+          Couldn't save: {autosave.error}
+        {:else}
+          Changes save automatically
+        {/if}
+      </div>
+      {#if status}
+        <div class="config" title="Config folder, shared with the redactor CLI">
+          {status.config_dir.replace(/^\/Users\/[^/]+/, "~")}
+        </div>
       {/if}
     </div>
   </nav>
 
-  <main>
+  <main class:fit={section === "overview"}>
     {#if status?.error}
       <div class="banner">Configuration error: {status.error}</div>
     {/if}
@@ -227,25 +222,6 @@
   .logo i:nth-child(3) {
     width: 15px;
   }
-  .profile {
-    display: grid;
-    gap: 6px;
-    margin: 0 4px 14px;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-  }
-  .profile label {
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .profile .link {
-    justify-self: start;
-    font-size: 12px;
-  }
   .nav {
     display: flex;
     justify-content: space-between;
@@ -273,18 +249,32 @@
     font-size: 11px;
     font-weight: 500;
   }
-  .save-state {
+  .footer {
     margin-top: auto;
     padding: 10px;
-    color: var(--muted);
+    display: grid;
+    gap: 4px;
     font-size: 12px;
+  }
+  .save-state {
+    color: var(--muted);
+  }
+  .config {
+    color: var(--muted);
+    font: 11px var(--mono);
+    overflow-wrap: anywhere;
   }
   .save-state.bad {
     color: var(--danger);
   }
   main {
     overflow: auto;
-    padding: 24px 32px 40px;
+    padding: 24px 32px 32px;
+  }
+  main.fit {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   main > h2 {
     margin: 0 0 4px;

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { COMMIT_DRAFTS } from "../../lib/autosave.svelte";
+
   // Editable list of strings shown as chips. Enter or comma adds a value.
   let {
     label,
@@ -11,6 +13,7 @@
   const id = `list-${Math.random().toString(36).slice(2)}`;
 
   function add() {
+    if (!draft.trim()) return;
     const items = draft
       .split(",")
       .map((v) => v.trim())
@@ -18,6 +21,12 @@
     values = [...values, ...items];
     draft = "";
   }
+
+  // The dashboard asks every field to commit its draft before closing.
+  $effect(() => {
+    window.addEventListener(COMMIT_DRAFTS, add);
+    return () => window.removeEventListener(COMMIT_DRAFTS, add);
+  });
 
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" || e.key === ",") {

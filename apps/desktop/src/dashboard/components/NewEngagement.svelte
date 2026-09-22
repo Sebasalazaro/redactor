@@ -58,6 +58,10 @@
   .row {
     display: flex;
     gap: 8px;
+    min-width: 0;
+  }
+  .row .btn {
+    flex-shrink: 0;
   }
   input.text {
     flex: 1;
