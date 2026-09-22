@@ -13,13 +13,21 @@ crates/
 │   │   ├── jwt.rs        # JWT decoding and claim-aware redaction
 │   │   ├── tld.rs        # TLDs accepted by the host detector
 │   │   ├── finding.rs    # Category (with priority) and Finding
+│   │   ├── store.rs      # config dir layout shared by the CLI and the app
 │   │   └── detectors/
 │   │       ├── patterns.rs  # format-independent regexes
 │   │       ├── http.rs      # headers, cookies, authorization schemes, curl flags
 │   │       └── keys.rs      # JSON / HAR / Postman / query / form, classified by key
 │   └── tests/            # golden fixtures, leak and determinism tests
 └── redactor-cli/         # `redactor` binary: stdin, files, clipboard
+apps/
+└── desktop/              # Tauri menu bar app (Svelte UI + Rust shell)
 ```
+
+`redactor-core::Store` owns the config directory, so the CLI and the desktop
+app always read and write the same files. `Redaction::segments()` splits a
+result into plain text and findings, which is what the review popup renders
+and lets the user toggle.
 
 ## Pipeline
 

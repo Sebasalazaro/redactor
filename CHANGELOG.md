@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Desktop app (Tauri, macOS menu bar): global hotkey, review popup with
+  reveal/re-mask and manual masking, engagement switching from the menu bar,
+  settings dashboard with a live playground.
+- `redactor-core`: `Store` for the shared config directory (atomic, owner-only
+  writes) and `Redaction::segments()` for interactive review.
 - `redactor-core`: detection engine for HTTP requests/responses, curl, fetch,
   HAR, Burp XML, Postman and plain text.
 - JWT decoding with claim-aware partial masking.

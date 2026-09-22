@@ -65,7 +65,19 @@ token belongs to the account being modified.
 - **Tested against leaks.** Every fixture has planted secrets, and the test
   suite asserts that none of them survive redaction.
 
-## Install
+## Desktop app
+
+A menu bar app for everyday use: copy traffic anywhere, press **⌥⌘R**, check
+the colored diff, press **Enter** and paste. Click any value to reveal or
+re-mask it, or select text and press **M** to mask something the engine missed.
+Engagements switch from the menu bar, and a settings dashboard edits the same
+config files the CLI uses.
+
+![Desktop flow: copy traffic, press the hotkey, review, paste](docs/desktop-flow.svg)
+
+See [apps/desktop](apps/desktop) to build it.
+
+## Install (CLI)
 
 Requires Rust 1.85+.
 
@@ -140,7 +152,8 @@ non-overlapping set, so adding a detector never corrupts the output. More in
 - `redactor` reduces risk; it does not remove the need to look at what you
   paste. Always review the output. The desktop app (see roadmap) will make
   that review a single keystroke.
-- Everything runs locally. The core crate has no networking dependencies.
+- Everything runs locally. The core crate has no networking dependencies, and
+  the desktop app has a strict CSP and exposes no plugins to its webviews.
 - Findings serialized with `--json` never include original values.
 - Partially masked values are designed to be unusable (for example, secrets
   never show more than 12 characters), but they are not encryption.
@@ -150,7 +163,7 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 ## Roadmap
 
 - [x] **Core engine and CLI:** detectors, masking, configs, golden and leak tests
-- [ ] **Desktop app (Tauri):** global hotkey, review popup with a diff, settings dashboard
+- [x] **Desktop app (Tauri):** global hotkey, review popup with a diff, menu bar, settings dashboard
 - [ ] **Local NER (GLiNER, ONNX):** context-aware detection of names and organizations, fully offline
 - [ ] **Reversible mode:** per-engagement mapping encrypted with AES-GCM, key stored in the macOS Keychain, to restore real values in LLM answers
 - [ ] **Optional encrypted history** of redactions

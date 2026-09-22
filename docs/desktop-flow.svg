@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 150" width="880" height="150" role="img" aria-labelledby="t d">
+  <title id="t">redactor desktop flow</title>
+  <desc id="d">Copy traffic, press the hotkey, review the redacted diff, press Enter and paste into the LLM.</desc>
+  <style>
+    .box { fill: #ffffff; stroke: #d6d9de; }
+    .key { fill: #fdf1dc; stroke: #c47a06; }
+    .t { fill: #16181d; font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .s { fill: #5d6470; font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .k { fill: #a86500; font: 600 15px ui-monospace, "SF Mono", Menlo, monospace; }
+    .a { stroke: #9aa1ad; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .ah { fill: #9aa1ad; }
+    .bar { fill: #f5a524; }
+    .txt { fill: #c9ced6; }
+    @media (prefers-color-scheme: dark) {
+      .box { fill: #181b21; stroke: #2c313b; }
+      .key { fill: #3a2a0d; stroke: #f5a524; }
+      .t { fill: #e6e8ec; }
+      .s { fill: #979eab; }
+      .k { fill: #ffbb4d; }
+      .txt { fill: #4a515d; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path class="ah" d="M0 0L10 5L0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="10" y="25" width="180" height="100" rx="10"/>
+  <text class="t" x="100" y="62" text-anchor="middle">Copy traffic</text>
+  <text class="s" x="100" y="84" text-anchor="middle">Burp, Caido, DevTools,</text>
+  <text class="s" x="100" y="101" text-anchor="middle">curl, logs…</text>
+
+  <path class="a" d="M195 75H235"/>
+
+  <rect class="key" x="240" y="45" width="110" height="60" rx="10"/>
+  <text class="k" x="295" y="81" text-anchor="middle">⌥⌘R</text>
+
+  <path class="a" d="M355 75H395"/>
+
+  <rect class="box" x="400" y="15" width="230" height="120" rx="10"/>
+  <text class="t" x="515" y="42" text-anchor="middle">Review popup</text>
+  <rect class="txt" x="425" y="58" width="50" height="9" rx="3"/>
+  <rect class="bar" x="482" y="58" width="120" height="9" rx="3"/>
+  <rect class="bar" x="425" y="76" width="90" height="9" rx="3"/>
+  <rect class="txt" x="522" y="76" width="80" height="9" rx="3"/>
+  <rect class="txt" x="425" y="94" width="30" height="9" rx="3"/>
+  <rect class="bar" x="462" y="94" width="70" height="9" rx="3"/>
+  <text class="s" x="515" y="124" text-anchor="middle">click to reveal · select + M to mask</text>
+
+  <path class="a" d="M635 75H675"/>
+
+  <rect class="box" x="680" y="25" width="190" height="100" rx="10"/>
+  <text class="t" x="775" y="62" text-anchor="middle">Enter → paste</text>
+  <text class="s" x="775" y="84" text-anchor="middle">into your LLM,</text>
+  <text class="s" x="775" y="101" text-anchor="middle">nothing sensitive left</text>
+</svg>
