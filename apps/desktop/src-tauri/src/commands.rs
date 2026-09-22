@@ -23,7 +23,8 @@ fn err(e: impl ToString) -> String {
 #[tauri::command]
 pub fn get_review(state: State<AppState>) -> Option<ReviewDto> {
     let engagement = state.settings().active_engagement;
-    state.with_pending(|pending| pending.map(|r| ReviewDto::new(r, engagement)))
+    let ai = state.ai.installed();
+    state.with_pending(|pending| pending.map(|r| ReviewDto::new(r, engagement, ai)))
 }
 
 #[tauri::command]
@@ -34,6 +35,21 @@ pub fn finish_review(app: AppHandle, text: String) -> CmdResult<()> {
 #[tauri::command]
 pub fn cancel_review(app: AppHandle) {
     flow::cancel_review(&app);
+}
+
+/// Runs the local AI model over the review text. Blocking work (loading
+/// the model, inference) happens off the main thread.
+#[tauri::command]
+pub async fn deep_scan(app: AppHandle, text: String) -> CmdResult<Vec<crate::ai::AiEntity>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let redactor = state.redactor();
+        let result = state.ai.scan(&text, &redactor);
+        let _ = app.emit_to(DASHBOARD, "overview-changed", ());
+        result
+    })
+    .await
+    .map_err(err)?
 }
 
 /// Masks a value the user selected by hand.
@@ -54,6 +70,8 @@ pub fn get_overview(state: State<AppState>) -> OverviewDto {
         }),
         memory: state.memory(),
         redactions: state.redactions(),
+        ai_installed: state.ai.installed(),
+        ai_loaded: state.ai.loaded(),
         uptime_secs: state.uptime().as_secs(),
     }
 }
@@ -92,6 +110,7 @@ pub fn clear_clipboard(app: AppHandle) -> CmdResult<()> {
 #[tauri::command]
 pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
     state.clear_last(Forgotten::Freed);
+    state.ai.unload();
     if let Some(review) = app.get_webview_window(REVIEW) {
         if !review.is_visible().unwrap_or(true) {
             state.set_pending(None);
@@ -110,13 +129,19 @@ pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
 #[tauri::command]
 pub fn preview(state: State<AppState>, text: String) -> ReviewDto {
     let redaction = state.redactor().redact(&text);
-    ReviewDto::new(&redaction, state.settings().active_engagement)
+    ReviewDto::new(
+        &redaction,
+        state.settings().active_engagement,
+        state.ai.installed(),
+    )
 }
 
 #[tauri::command]
 pub fn get_status(state: State<AppState>) -> StatusDto {
     StatusDto {
         config_dir: state.store.dir().display().to_string(),
+        model_dir: state.ai.dir().display().to_string(),
+        ai_installed: state.ai.installed(),
         error: state.error(),
     }
 }

@@ -72,6 +72,25 @@
   </div>
 </div>
 
+<h4>AI deep scan</h4>
+<div class="rows">
+  <div class="row">
+    <div>
+      <strong>Local model</strong>
+      <p>
+        GLiNER PII (knowledgator/gliner-pii-edge-v1.0), runs on this Mac only when you press
+        <em>Deep scan</em> in the review popup, in a separate process that ends after two idle
+        minutes (~190 MB while it runs). English-focused.
+      </p>
+    </div>
+    {#if status?.ai_installed}
+      <span class="installed">Installed</span>
+    {:else}
+      <code class="path">scripts/fetch-model.sh</code>
+    {/if}
+  </div>
+</div>
+
 <h4>Storage</h4>
 <div class="rows">
   <div class="row">
@@ -123,6 +142,10 @@
     width: 18px;
     height: 18px;
     accent-color: var(--accent);
+  }
+  .installed {
+    color: var(--ok);
+    font-weight: 600;
   }
   .path {
     font-size: 12px;

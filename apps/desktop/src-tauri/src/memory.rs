@@ -17,6 +17,8 @@ pub struct MemoryDto {
     /// Resident memory of the WebKit processes serving the app's windows.
     pub webview_bytes: u64,
     pub webview_processes: usize,
+    /// Resident memory of the AI worker process, while it runs.
+    pub ai_bytes: u64,
     pub system_total: u64,
     pub system_used: u64,
 }
@@ -34,7 +36,8 @@ impl Meter {
         }
     }
 
-    pub fn snapshot(&mut self) -> MemoryDto {
+    /// Measures the app, its web views and, if given, the AI worker.
+    pub fn snapshot(&mut self, worker: Option<u32>) -> MemoryDto {
         self.system.refresh_memory();
         self.system.refresh_processes_specifics(
             ProcessesToUpdate::All,
@@ -58,8 +61,13 @@ impl Meter {
             .map(|p| p.memory())
             .collect();
 
+        let ai_bytes = worker
+            .and_then(|pid| self.system.process(Pid::from_u32(pid)))
+            .map_or(0, |p| p.memory());
+
         MemoryDto {
             app_bytes,
+            ai_bytes,
             webview_bytes: webviews.iter().sum(),
             webview_processes: webviews.len(),
             system_total: self.system.total_memory(),
@@ -104,7 +112,7 @@ mod tests {
 
     #[test]
     fn measures_own_process() {
-        let snapshot = Meter::new().snapshot();
+        let snapshot = Meter::new().snapshot(None);
         assert!(snapshot.app_bytes > 0);
         assert!(snapshot.system_total >= snapshot.system_used);
     }

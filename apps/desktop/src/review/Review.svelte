@@ -3,19 +3,22 @@
   import { onMount } from "svelte";
   import { api, CATEGORY_LABELS, compose, type Review, type Segment } from "../lib/api";
 
-  type Item = Segment & { revealed?: boolean; manual?: boolean };
+  /** A segment as shown: can be revealed, or added by hand or by the AI. */
+  type Item = Segment & { revealed?: boolean; manual?: boolean; ai?: string };
 
   let review = $state<Review | null>(null);
   let items = $state<Item[]>([]);
   let error = $state<string | null>(null);
   let doc = $state<HTMLElement>();
+  let scanning = $state(false);
+  let scanResult = $state("");
 
   const redacted = $derived(items.filter((s) => s.kind === "redacted"));
   const revealed = $derived(redacted.filter((s) => s.revealed).length);
   const counts = $derived.by(() => {
     const map = new Map<string, number>();
     for (const s of redacted) {
-      const label = s.manual ? "Manual" : CATEGORY_LABELS[s.category];
+      const label = s.ai ? "AI" : s.manual ? "Manual" : CATEGORY_LABELS[s.category];
       map.set(label, (map.get(label) ?? 0) + 1);
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
@@ -23,6 +26,7 @@
 
   async function load() {
     error = null;
+    scanResult = "";
     review = await api.getReview();
     items = review ? review.segments.map((s) => ({ ...s })) : [];
     doc?.scrollTo(0, 0);
@@ -62,6 +66,52 @@
     items.splice(i, 1, ...parts);
     sel.removeAllRanges();
     error = null;
+  }
+
+  /**
+   * Runs the local AI model over the text as it would be copied, and masks
+   * what it finds inside unredacted text. Values it finds inside already
+   * redacted spans are ignored.
+   */
+  async function deepScan() {
+    if (scanning) return;
+    scanning = true;
+    error = null;
+    try {
+      const starts: number[] = [];
+      let text = "";
+      for (const s of items) {
+        starts.push(text.length);
+        text += s.kind === "plain" ? s.text : s.revealed ? s.original : s.replacement;
+      }
+      const entities = await api.deepScan(text);
+      let added = 0;
+      // Walk backwards so splitting an item does not shift earlier indices.
+      for (const e of [...entities].sort((a, b) => b.start - a.start)) {
+        const i = starts.findLastIndex((start) => start <= e.start);
+        const item = items[i];
+        if (i < 0 || item.kind !== "plain" || e.end > starts[i] + item.text.length) continue;
+        const from = e.start - starts[i];
+        const to = e.end - starts[i];
+        const parts: Item[] = [];
+        if (from > 0) parts.push({ kind: "plain", text: item.text.slice(0, from) });
+        parts.push({
+          kind: "redacted",
+          category: e.category,
+          original: item.text.slice(from, to),
+          replacement: e.replacement,
+          ai: `${e.label} (${Math.round(e.score * 100)}%)`,
+        });
+        if (to < item.text.length) parts.push({ kind: "plain", text: item.text.slice(to) });
+        items.splice(i, 1, ...parts);
+        added++;
+      }
+      scanResult = added ? `AI masked ${added} more` : "AI found nothing new";
+    } catch (e) {
+      error = String(e);
+    } finally {
+      scanning = false;
+    }
   }
 
   /** Drops the texts from this page's memory before the window goes away. */
@@ -142,7 +192,8 @@
             class:revealed={s.revealed}
             role="button"
             tabindex="0"
-            title="{s.manual ? 'Manual' : CATEGORY_LABELS[s.category]} · click to {s.revealed ? 'mask' : 'reveal'}"
+            class:ai={!!s.ai}
+            title="{s.ai ? `AI: ${s.ai}` : s.manual ? 'Manual' : CATEGORY_LABELS[s.category]} · click to {s.revealed ? 'mask' : 'reveal'}"
             onclick={() => toggle(i)}
             onkeydown={(e) => (e.key === " " ? (e.preventDefault(), toggle(i)) : undefined)}
             >{s.revealed ? s.original : s.replacement}</span
@@ -154,9 +205,22 @@
     <div class="hints">
       <span><kbd>Click</kbd> reveal / mask</span>
       <span><kbd>Select</kbd> + <kbd>M</kbd> mask by hand</span>
+      {#if scanResult}<span class="ok">{scanResult}</span>{/if}
       {#if error}<span class="error">{error}</span>{/if}
     </div>
     <div class="actions">
+      {#if review}
+        <button
+          class="btn"
+          onclick={deepScan}
+          disabled={!review.ai_installed || scanning}
+          title={review.ai_installed
+            ? "Find names, organizations and other data with the local AI model"
+            : "Install the model first: scripts/fetch-model.sh"}
+        >
+          {scanning ? "Scanning…" : "Deep scan (AI)"}
+        </button>
+      {/if}
       <button class="btn" onclick={cancel}>Cancel <kbd>Esc</kbd></button>
       <button class="btn primary" onclick={confirm} disabled={!review}>Copy <kbd>↵</kbd></button>
     </div>
@@ -242,6 +306,13 @@
   }
   .error {
     color: var(--danger);
+  }
+  .ok {
+    color: var(--ok);
+  }
+  .redacted.ai {
+    outline: 1px dashed var(--c);
+    outline-offset: 1px;
   }
   .actions {
     display: flex;

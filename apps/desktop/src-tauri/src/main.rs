@@ -3,6 +3,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
 mod commands;
 mod dto;
 mod flow;
@@ -20,7 +21,20 @@ use tauri_plugin_global_shortcut::ShortcutState;
 use crate::flow::{DASHBOARD, REVIEW};
 use crate::state::AppState;
 
+/// `redactor-desktop --ner-worker <model dir>` runs the AI model for the
+/// app in a child process (see `ai.rs`), then exits.
+const WORKER_FLAG: &str = "--ner-worker";
+
 fn main() {
+    let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if args.get(1).is_some_and(|a| a == WORKER_FLAG) {
+        let dir = std::path::PathBuf::from(args.get(2).cloned().unwrap_or_default());
+        let stdin = std::io::stdin().lock();
+        let stdout = std::io::stdout().lock();
+        let code = i32::from(redactor_ner::worker::serve(&dir, stdin, stdout).is_err());
+        std::process::exit(code);
+    }
+
     let store =
         Store::open_default().expect("cannot locate the config dir; set REDACTOR_CONFIG_DIR");
     let first_run = !store.global_path().exists();
@@ -52,12 +66,16 @@ fn main() {
                 flow::show(handle, DASHBOARD);
             }
 
-            // Forget the last redaction once it expires, even if nobody looks.
+            // Housekeeping: forget the last redaction once it expires and
+            // unload the AI model when idle, even if nobody looks.
             let handle = handle.clone();
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(Duration::from_secs(30));
-                    if handle.state::<AppState>().forget_expired() {
+                    let state = handle.state::<AppState>();
+                    let expired = state.forget_expired();
+                    let unloaded = state.ai.unload_if_idle();
+                    if expired || unloaded {
                         let _ = handle.emit_to(DASHBOARD, "overview-changed", ());
                     }
                 }
@@ -95,6 +113,7 @@ fn main() {
             commands::create_engagement,
             commands::redact_now,
             commands::close_window,
+            commands::deep_scan,
             commands::preview,
             commands::get_status,
             commands::get_settings,

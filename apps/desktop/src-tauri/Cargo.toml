@@ -13,6 +13,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 redactor-core = { path = "../../../crates/redactor-core" }
+redactor-ner = { path = "../../../crates/redactor-ner" }
 serde.workspace = true
 serde_json.workspace = true
 sysinfo = { version = "0.39", default-features = false, features = ["system"] }

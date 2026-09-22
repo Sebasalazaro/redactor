@@ -24,6 +24,7 @@ export type Segment =
 
 export interface Review {
   format: string;
+  ai_installed: boolean;
   engagement: string | null;
   segments: Segment[];
 }
@@ -71,6 +72,7 @@ export interface Memory {
   app_bytes: number;
   webview_bytes: number;
   webview_processes: number;
+  ai_bytes: number;
   system_total: number;
   system_used: number;
 }
@@ -91,10 +93,24 @@ export interface Overview {
   memory: Memory;
   redactions: number;
   uptime_secs: number;
+  ai_installed: boolean;
+  ai_loaded: boolean;
+}
+
+/** An entity found by the local AI model, in UTF-16 offsets of the scanned text. */
+export interface AiEntity {
+  start: number;
+  end: number;
+  label: string;
+  score: number;
+  category: Category;
+  replacement: string;
 }
 
 export interface Status {
   config_dir: string;
+  model_dir: string;
+  ai_installed: boolean;
   error: string | null;
 }
 
@@ -120,6 +136,7 @@ export const api = {
   finishReview: (text: string) => invoke<void>("finish_review", { text }),
   cancelReview: () => invoke<void>("cancel_review"),
   maskText: (text: string) => invoke<string>("mask_text", { text }),
+  deepScan: (text: string) => invoke<AiEntity[]>("deep_scan", { text }),
   preview: (text: string) => invoke<Review>("preview", { text }),
   getStatus: () => invoke<Status>("get_status"),
   getSettings: () => invoke<AppSettings>("get_settings"),

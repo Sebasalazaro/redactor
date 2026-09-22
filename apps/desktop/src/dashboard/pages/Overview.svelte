@@ -43,7 +43,9 @@
     overview ? Math.round((overview.memory.system_used / overview.memory.system_total) * 100) : 0,
   );
   const appTotal = $derived(
-    overview ? overview.memory.app_bytes + overview.memory.webview_bytes : 0,
+    overview
+      ? overview.memory.app_bytes + overview.memory.webview_bytes + overview.memory.ai_bytes
+      : 0,
   );
 
   const FORGOTTEN: Record<ForgottenReason, string> = {
@@ -219,6 +221,13 @@
         <p class="muted small">
           System {bytes(overview.memory.system_used)} of {bytes(overview.memory.system_total)} ({systemPct}%)
           · {overview.redactions} redactions this session
+        </p>
+        <p class="muted small">
+          AI: {overview.ai_loaded
+            ? `worker running, ${bytes(overview.memory.ai_bytes)} (ends after 2 idle minutes)`
+            : overview.ai_installed
+              ? "installed, not running"
+              : "model not installed"}
         </p>
         <div class="buttons">
           <button

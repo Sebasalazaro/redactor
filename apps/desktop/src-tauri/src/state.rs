@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use redactor_core::{Category, InputFormat, Redaction, Redactor, Store};
 
+use crate::ai::Ai;
 use crate::memory::{MemoryDto, Meter};
 use crate::settings::AppSettings;
 
@@ -61,6 +62,7 @@ pub enum Forgotten {
 
 pub struct AppState {
     pub store: Store,
+    pub ai: Ai,
     settings: Mutex<AppSettings>,
     redactor: Mutex<Arc<Redactor>>,
     /// Redaction waiting in the review popup.
@@ -88,6 +90,7 @@ impl AppState {
             Err(e) => (AppSettings::default(), Some(e)),
         };
         let state = Self {
+            ai: Ai::new(&store),
             store,
             settings: Mutex::new(settings),
             redactor: Mutex::new(Arc::new(Redactor::new(&Default::default()))),
@@ -215,7 +218,7 @@ impl AppState {
     }
 
     pub fn memory(&self) -> MemoryDto {
-        lock(&self.meter).snapshot()
+        lock(&self.meter).snapshot(self.ai.worker_pid())
     }
 }
 

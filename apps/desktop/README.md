@@ -12,6 +12,9 @@ copy it.
 - **Review popup:** colored diff by data type, click any value to reveal or
   re-mask it, select text and press `M` to mask something the engine missed,
   `Enter` copies and `Esc` cancels.
+- **Deep scan (AI):** in the popup, runs the local GLiNER model over the text
+  and masks names, organizations, usernames, addresses and phone numbers the
+  patterns missed (dashed outline). Needs `scripts/fetch-model.sh` once.
 - **Menu bar:** redact now, open the dashboard, switch the active engagement.
 - **Dashboard:**
   - *Overview:* the last redaction (copy it again or forget it), the active
@@ -35,6 +38,12 @@ memory of the app plus the WebKit processes serving its windows):
 |---|---|---|
 | Idle in the menu bar | 194 MB | **70 MB** |
 | Dashboard open | 194 MB | 170 MB |
+
+The AI model runs in a worker process (the app's own binary started with
+`--ner-worker`), created on the first Deep scan and ended after two idle
+minutes or by *Free memory*. ONNX Runtime keeps most of its memory after a
+model is dropped (~190 MB), so ending the process is the only way to get it
+all back; `tests/worker.rs` checks that the process is gone.
 
 Windows are created when needed and destroyed when closed, which ends their
 WebKit processes (*Unload windows when closed*, on by default). The engine's

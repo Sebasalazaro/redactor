@@ -22,12 +22,14 @@ pub enum SegmentDto {
 #[derive(Debug, Serialize)]
 pub struct ReviewDto {
     pub format: InputFormat,
+    /// Whether the local AI model can run a deep scan.
+    pub ai_installed: bool,
     pub engagement: Option<String>,
     pub segments: Vec<SegmentDto>,
 }
 
 impl ReviewDto {
-    pub fn new(redaction: &Redaction, engagement: Option<String>) -> Self {
+    pub fn new(redaction: &Redaction, engagement: Option<String>, ai_installed: bool) -> Self {
         let segments = redaction
             .segments()
             .into_iter()
@@ -42,6 +44,7 @@ impl ReviewDto {
             .collect();
         Self {
             format: redaction.format,
+            ai_installed,
             engagement,
             segments,
         }
@@ -51,6 +54,8 @@ impl ReviewDto {
 #[derive(Debug, Serialize)]
 pub struct StatusDto {
     pub config_dir: String,
+    pub model_dir: String,
+    pub ai_installed: bool,
     pub error: Option<String>,
 }
 
@@ -82,6 +87,8 @@ pub struct OverviewDto {
     pub memory: MemoryDto,
     pub redactions: u64,
     pub uptime_secs: u64,
+    pub ai_installed: bool,
+    pub ai_loaded: bool,
 }
 
 /// An engagement as listed in the dashboard and the menu bar.
