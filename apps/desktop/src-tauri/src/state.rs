@@ -44,6 +44,21 @@ impl LastRedaction {
     }
 }
 
+/// Why the last redaction is gone, so the overview can say so instead of
+/// looking empty.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Forgotten {
+    /// Older than `forget_last_after_minutes`.
+    Expired,
+    /// "Forget" in the overview.
+    Cleared,
+    /// "Free memory" in the overview.
+    Freed,
+    /// Keeping the last redaction was turned off.
+    Disabled,
+}
+
 pub struct AppState {
     pub store: Store,
     settings: Mutex<AppSettings>,
@@ -51,6 +66,7 @@ pub struct AppState {
     /// Redaction waiting in the review popup.
     pending: Mutex<Option<Redaction>>,
     last: Mutex<Option<LastRedaction>>,
+    forgotten: Mutex<Option<(Forgotten, Instant)>>,
     meter: Mutex<Meter>,
     /// Last configuration error, shown in the dashboard.
     error: Mutex<Option<String>>,
@@ -77,6 +93,7 @@ impl AppState {
             redactor: Mutex::new(Arc::new(Redactor::new(&Default::default()))),
             pending: Mutex::new(None),
             last: Mutex::new(None),
+            forgotten: Mutex::new(None),
             meter: Mutex::new(Meter::new()),
             error: Mutex::new(error),
             redactions: AtomicU64::new(0),
@@ -112,7 +129,7 @@ impl AppState {
         let keep_last = settings.keep_last;
         *lock(&self.settings) = settings;
         if !keep_last {
-            self.clear_last();
+            self.clear_last(Forgotten::Disabled);
         }
         self.reload();
         Ok(())
@@ -135,6 +152,24 @@ impl AppState {
         self.redactions.fetch_add(1, Ordering::Relaxed);
         if self.settings().keep_last {
             *lock(&self.last) = Some(last);
+            *lock(&self.forgotten) = None;
+        }
+    }
+
+    /// Turns the pending review into the last redaction, with the text the
+    /// user confirmed. Returns false if there was nothing pending.
+    pub fn complete_review(&self, text: &str) -> bool {
+        let engagement = self.settings().active_engagement;
+        let last = self.with_pending(|pending| {
+            pending.map(|r| LastRedaction::new(text.to_string(), r, engagement))
+        });
+        self.set_pending(None);
+        match last {
+            Some(last) => {
+                self.record(last);
+                true
+            }
+            None => false,
         }
     }
 
@@ -143,8 +178,15 @@ impl AppState {
         lock(&self.last).clone()
     }
 
-    pub fn clear_last(&self) {
-        *lock(&self.last) = None;
+    pub fn clear_last(&self, reason: Forgotten) {
+        if lock(&self.last).take().is_some() {
+            *lock(&self.forgotten) = Some((reason, Instant::now()));
+        }
+    }
+
+    /// Why and how long ago the last redaction was dropped, if it was.
+    pub fn forgotten(&self) -> Option<(Forgotten, Duration)> {
+        lock(&self.forgotten).map(|(reason, at)| (reason, at.elapsed()))
     }
 
     /// Drops the last redaction once it is older than the configured limit.
@@ -159,6 +201,7 @@ impl AppState {
             .is_some_and(|l| l.at.elapsed() >= Duration::from_secs(u64::from(minutes) * 60));
         if expired {
             *last = None;
+            *lock(&self.forgotten) = Some((Forgotten::Expired, Instant::now()));
         }
         expired
     }
@@ -197,8 +240,9 @@ mod tests {
         state.record(last(&state, "second"));
         assert_eq!(state.last().unwrap().output, "second");
         assert_eq!(state.redactions(), 2);
-        state.clear_last();
+        state.clear_last(Forgotten::Cleared);
         assert!(state.last().is_none());
+        assert_eq!(state.forgotten().unwrap().0, Forgotten::Cleared);
         std::fs::remove_dir_all(state.store.dir()).ok();
     }
 
@@ -212,8 +256,22 @@ mod tests {
         };
         state.set_settings(settings).unwrap();
         assert!(state.last().is_none());
+        assert_eq!(state.forgotten().unwrap().0, Forgotten::Disabled);
         state.record(last(&state, "not kept"));
         assert!(state.last().is_none());
+        std::fs::remove_dir_all(state.store.dir()).ok();
+    }
+
+    #[test]
+    fn confirmed_review_becomes_the_last_redaction() {
+        let state = state("confirm");
+        assert!(!state.complete_review("nothing pending"));
+        state.set_pending(Some(state.redactor().redact("GET /users/88127 HTTP/1.1")));
+        assert!(state.complete_review("GET /users/8812* HTTP/1.1"));
+        let last = state.last().unwrap();
+        assert_eq!(last.output, "GET /users/8812* HTTP/1.1");
+        assert_eq!(last.categories, [(redactor_core::Category::Id, 1)]);
+        assert!(state.with_pending(|p| p.is_none()));
         std::fs::remove_dir_all(state.store.dir()).ok();
     }
 

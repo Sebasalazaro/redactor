@@ -37,16 +37,10 @@ pub fn redact_clipboard(app: &AppHandle) {
 
 /// Copies the reviewed text and closes the popup.
 pub fn finish_review(app: &AppHandle, text: String) -> Result<(), String> {
-    let state = app.state::<AppState>();
-    let engagement = state.settings().active_engagement;
-    let last = state
-        .with_pending(|pending| pending.map(|r| LastRedaction::new(text.clone(), r, engagement)));
     app.clipboard()
-        .write_text(text)
+        .write_text(text.clone())
         .map_err(|e| e.to_string())?;
-    if let Some(last) = last {
-        state.record(last);
-    }
+    app.state::<AppState>().complete_review(&text);
     close_review(app);
     let _ = app.emit_to(DASHBOARD, "overview-changed", ());
     Ok(())
@@ -71,6 +65,19 @@ fn close_review(app: &AppHandle) {
             let _ = window.hide();
         }
     }
+}
+
+/// Asks the dashboard to save pending edits before it is destroyed. It calls
+/// `close_window` when done; if it does not answer, it is closed anyway.
+pub fn request_dashboard_close(app: &AppHandle) {
+    let _ = app.emit_to(DASHBOARD, "close-requested", ());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        if let Some(window) = app.get_webview_window(DASHBOARD) {
+            let _ = window.destroy();
+        }
+    });
 }
 
 /// Shows a window, creating it if needed.

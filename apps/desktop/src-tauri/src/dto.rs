@@ -4,7 +4,7 @@ use redactor_core::{Category, Config, InputFormat, Redaction, Segment};
 use serde::Serialize;
 
 use crate::memory::MemoryDto;
-use crate::state::LastRedaction;
+use crate::state::{Forgotten, LastRedaction};
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -78,6 +78,7 @@ impl From<LastRedaction> for LastDto {
 #[derive(Debug, Serialize)]
 pub struct OverviewDto {
     pub last: Option<LastDto>,
+    pub forgotten: Option<ForgottenDto>,
     pub memory: MemoryDto,
     pub redactions: u64,
     pub uptime_secs: u64,
@@ -95,4 +96,10 @@ pub struct EngagementDto {
 pub struct FreedDto {
     pub released_bytes: usize,
     pub memory: MemoryDto,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ForgottenDto {
+    pub reason: Forgotten,
+    pub secs_ago: u64,
 }

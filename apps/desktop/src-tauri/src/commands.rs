@@ -5,11 +5,11 @@ use redactor_core::Config;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-use crate::dto::{EngagementDto, FreedDto, OverviewDto, ReviewDto, StatusDto};
+use crate::dto::{EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto};
 use crate::flow::{self, DASHBOARD, REVIEW};
 use crate::memory;
 use crate::settings::AppSettings;
-use crate::state::AppState;
+use crate::state::{AppState, Forgotten};
 use crate::tray;
 
 type CmdResult<T> = Result<T, String>;
@@ -48,10 +48,26 @@ pub fn mask_text(state: State<AppState>, text: String) -> String {
 pub fn get_overview(state: State<AppState>) -> OverviewDto {
     OverviewDto {
         last: state.last().map(Into::into),
+        forgotten: state.forgotten().map(|(reason, ago)| ForgottenDto {
+            reason,
+            secs_ago: ago.as_secs(),
+        }),
         memory: state.memory(),
         redactions: state.redactions(),
         uptime_secs: state.uptime().as_secs(),
     }
+}
+
+/// Same as the hotkey: redacts the clipboard and opens the review popup.
+#[tauri::command]
+pub fn redact_now(app: AppHandle) {
+    flow::redact_clipboard(&app);
+}
+
+/// Called by a window once it has saved its state and can go away.
+#[tauri::command]
+pub fn close_window(window: tauri::WebviewWindow) {
+    let _ = window.destroy();
 }
 
 /// Puts the last redacted text back on the clipboard.
@@ -63,7 +79,7 @@ pub fn copy_last(app: AppHandle, state: State<AppState>) -> CmdResult<()> {
 
 #[tauri::command]
 pub fn clear_last(state: State<AppState>) {
-    state.clear_last();
+    state.clear_last(Forgotten::Cleared);
 }
 
 #[tauri::command]
@@ -75,7 +91,7 @@ pub fn clear_clipboard(app: AppHandle) -> CmdResult<()> {
 /// hidden review window) and returns freed pages to the OS.
 #[tauri::command]
 pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
-    state.clear_last();
+    state.clear_last(Forgotten::Freed);
     if let Some(review) = app.get_webview_window(REVIEW) {
         if !review.is_visible().unwrap_or(true) {
             state.set_pending(None);

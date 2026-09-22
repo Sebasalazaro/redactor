@@ -36,7 +36,7 @@ impl Default for AppSettings {
             active_engagement: None,
             review: true,
             keep_last: true,
-            forget_last_after_minutes: 15,
+            forget_last_after_minutes: 60,
             clear_clipboard_on_cancel: false,
             unload_windows: true,
         }

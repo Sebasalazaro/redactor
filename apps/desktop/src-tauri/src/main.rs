@@ -72,7 +72,11 @@ fn main() {
                 if window.label() == REVIEW {
                     api.prevent_close();
                     flow::cancel_review(app);
-                } else if !app.state::<AppState>().settings().unload_windows {
+                } else if app.state::<AppState>().settings().unload_windows {
+                    // Let the page flush unsaved edits first.
+                    api.prevent_close();
+                    flow::request_dashboard_close(app);
+                } else {
                     api.prevent_close();
                     let _ = window.hide();
                 }
@@ -89,6 +93,8 @@ fn main() {
             commands::clear_clipboard,
             commands::free_memory,
             commands::create_engagement,
+            commands::redact_now,
+            commands::close_window,
             commands::preview,
             commands::get_status,
             commands::get_settings,
