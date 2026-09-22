@@ -174,7 +174,9 @@ impl Redactor {
     // Masking helpers. They all protect client names first, so a partially
     // visible value never shows the client.
 
-    pub(crate) fn mask_secret(&self, value: &str) -> String {
+    /// Masks `value` as a secret with this policy's ratio. Used for values
+    /// the user marks by hand.
+    pub fn mask_secret(&self, value: &str) -> String {
         let masked = mask::secret(value, self.masking.secret_keep);
         self.dict.replace_clients(&masked).unwrap_or(masked)
     }
