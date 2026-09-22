@@ -4,8 +4,12 @@
 //! <config dir>/
 //! ├── config.toml              # global config
 //! └── engagements/
-//!     └── <name>.toml          # one profile per engagement
+//!     └── <id>.toml            # one profile per engagement
 //! ```
+//!
+//! An engagement has a display name (`Globex Q3 — Web`, stored in the file's
+//! `name` field) and an id derived from it (`globex-q3-web`) that is safe to
+//! use as a file name.
 //!
 //! The config dir is `$REDACTOR_CONFIG_DIR`, `$XDG_CONFIG_HOME/redactor` or
 //! `~/.config/redactor`, in that order. Files are written atomically and, on
@@ -15,6 +19,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::config::{Config, ConfigError};
+use crate::dictionary::fold_char;
 
 const GLOBAL_FILE: &str = "config.toml";
 const ENGAGEMENTS_DIR: &str = "engagements";
@@ -94,6 +99,44 @@ impl Store {
         std::fs::remove_file(&path).map_err(|source| ConfigError::Io { path, source })
     }
 
+    /// Creates an engagement from a display name and returns its id. The id
+    /// gets a numeric suffix if another engagement already uses it.
+    pub fn create_engagement(&self, display_name: &str) -> Result<String, ConfigError> {
+        let display_name = display_name.trim();
+        let base = slugify(display_name);
+        let mut id = base.clone();
+        let mut n = 2;
+        while self.engagement_path(&id)?.exists() {
+            id = format!("{base}-{n}");
+            n += 1;
+        }
+        let config = Config {
+            name: Some(display_name.to_string()),
+            ..Default::default()
+        };
+        self.save_engagement(&id, &config)?;
+        Ok(id)
+    }
+
+    /// Resolves an engagement given its id or its display name
+    /// (case-insensitive), as users type either on the command line.
+    pub fn find_engagement(&self, query: &str) -> Result<String, ConfigError> {
+        let ids = self.engagements()?;
+        if ids.iter().any(|id| id == query) {
+            return Ok(query.to_string());
+        }
+        for id in &ids {
+            let name = self.load_engagement(id)?.name;
+            if name.is_some_and(|n| n.trim().eq_ignore_ascii_case(query.trim())) {
+                return Ok(id.clone());
+            }
+        }
+        let slug = slugify(query);
+        ids.into_iter()
+            .find(|id| *id == slug)
+            .ok_or_else(|| ConfigError::UnknownEngagement(query.to_string()))
+    }
+
     /// The global config with the named engagement layered on top.
     pub fn resolve(&self, engagement: Option<&str>) -> Result<Config, ConfigError> {
         let global = self.load_global()?;
@@ -116,7 +159,32 @@ pub fn default_dir() -> Option<PathBuf> {
     Some(PathBuf::from(home).join(".config").join("redactor"))
 }
 
-/// Engagement names become file names: keep them boring.
+/// Turns a display name into an id: lowercase ASCII, digits and dashes.
+///
+/// ```
+/// use redactor_core::store::slugify;
+/// assert_eq!(slugify("Globex Q3 — Web App"), "globex-q3-web-app");
+/// assert_eq!(slugify("Añil Pagos"), "anil-pagos");
+/// ```
+pub fn slugify(name: &str) -> String {
+    let mut slug = String::with_capacity(name.len());
+    for c in name.chars().map(fold_char) {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.ends_with('-') && !slug.is_empty() {
+            slug.push('-');
+        }
+    }
+    let slug: String = slug.trim_end_matches('-').chars().take(64).collect();
+    let slug = slug.trim_end_matches('-').to_string();
+    if slug.is_empty() {
+        "engagement".into()
+    } else {
+        slug
+    }
+}
+
+/// Engagement ids become file names: keep them boring.
 fn validate_name(name: &str) -> Result<(), ConfigError> {
     let valid = !name.is_empty()
         && name.len() <= 64
@@ -205,6 +273,48 @@ mod tests {
             .mode();
         assert_eq!(mode & 0o777, 0o600);
         std::fs::remove_dir_all(store.dir()).unwrap();
+    }
+
+    #[test]
+    fn creates_engagements_from_display_names() {
+        let store = temp_store("create");
+        assert_eq!(
+            store.create_engagement("Globex Q3 Web").unwrap(),
+            "globex-q3-web"
+        );
+        assert_eq!(
+            store.create_engagement("globex q3 web").unwrap(),
+            "globex-q3-web-2"
+        );
+        assert_eq!(
+            store
+                .load_engagement("globex-q3-web")
+                .unwrap()
+                .name
+                .as_deref(),
+            Some("Globex Q3 Web")
+        );
+        assert_eq!(
+            store.find_engagement("GLOBEX Q3 WEB").unwrap(),
+            "globex-q3-web"
+        );
+        assert_eq!(
+            store.find_engagement("globex-q3-web-2").unwrap(),
+            "globex-q3-web-2"
+        );
+        assert!(matches!(
+            store.find_engagement("initech"),
+            Err(ConfigError::UnknownEngagement(_))
+        ));
+        std::fs::remove_dir_all(store.dir()).unwrap();
+    }
+
+    #[test]
+    fn slugs_are_valid_ids() {
+        for name in ["", "   ", "***", "../../etc", "Ω Omega", &"x".repeat(200)] {
+            let slug = slugify(name);
+            assert!(validate_name(&slug).is_ok(), "{name:?} -> {slug:?}");
+        }
     }
 
     #[test]

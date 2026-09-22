@@ -29,7 +29,7 @@ struct Cli {
     #[arg(short, long, value_name = "PATH")]
     config: Option<PathBuf>,
 
-    /// Engagement profile: a path, or a name under <config dir>/engagements/.
+    /// Engagement profile: a path, an id or a display name.
     #[arg(short, long, value_name = "NAME|PATH")]
     engagement: Option<String>,
 
@@ -96,8 +96,9 @@ fn load_config(cli: &Cli, store: &Store) -> Result<Config> {
     let profile = if path.exists() {
         Config::load(path)?
     } else {
+        let id = store.find_engagement(engagement)?;
         store
-            .load_engagement(engagement)
+            .load_engagement(&id)
             .with_context(|| format!("loading engagement {engagement:?}"))?
     };
     Ok(global.with_engagement(&profile))

@@ -93,8 +93,10 @@ pub enum ConfigError {
     Ratio { field: &'static str, value: f64 },
     #[error("cannot serialize config: {0}")]
     Serialize(#[from] toml::ser::Error),
-    #[error("invalid engagement name {0:?} (use letters, digits, '-', '_' or '.')")]
+    #[error("invalid engagement id {0:?}: ids are generated from the display name")]
     InvalidName(String),
+    #[error("no engagement named {0:?}")]
+    UnknownEngagement(String),
 }
 
 impl Config {

@@ -113,7 +113,7 @@ fn fold(text: &str) -> Folded {
 }
 
 /// One character in, one character out, so offsets map back exactly.
-fn fold_char(c: char) -> char {
+pub(crate) fn fold_char(c: char) -> char {
     match c.to_lowercase().next().unwrap_or(c) {
         'á' | 'à' | 'ä' | 'â' | 'ã' | 'å' => 'a',
         'é' | 'è' | 'ë' | 'ê' => 'e',
