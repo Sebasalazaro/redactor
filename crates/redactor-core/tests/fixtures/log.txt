@@ -1,0 +1,10 @@
+2026-09-21T15:04:05Z ERROR [ledger-sync] connection to srv-db01 (10.40.2.15) failed for user qa.tester01
+Caused by: java.io.IOException: Connection reset
+    at com.globexbank.ledger.SyncJob.run(SyncJob.java:118)
+Nmap scan report for jenkins-int.globexbank.example (10.40.7.3)
+PORT     STATE SERVICE
+8080/tcp open  http-proxy
+Found AWS key AKIAIOSFODNN7EXAMPLE in /opt/app/config.yml
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAfakefakefakefakefakefakefakefakefakefake
+-----END RSA PRIVATE KEY-----

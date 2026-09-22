@@ -1,0 +1,1 @@
+[JWT header{alg=RS256, typ=JWT, kid=gbx-signing-2***} payload{iss=https://sso.[CLIENT].example/realms/retail, aud=[CLIENT]-mobile, sub=f3b1c2d4-9a7e-4b21-8c3d-5e6f7*******, name=Ju** Pé***, email=ju**.pe***@[CLIENT].example, roles=[customer, [CLIENT]-support], scope=openid profile accounts:read, exp=1790000000, iat=1789996400} sig=…[len=62]]

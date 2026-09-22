@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!DOCTYPE items [
+<!ELEMENT items (item*)>
+]>
+<items burpVersion="2026.8" exportTime="Mon Sep 21 15:04:05 COT 2026">
+  <item>
+    <time>Mon Sep 21 15:04:05 COT 2026</time>
+    <url><![CDATA[https://api.[CLIENT].example/api/v2/customers/5501*]]></url>
+    <host ip="198.*.*.*">api.[CLIENT].example</host>
+    <port>443</port>
+    <protocol>https</protocol>
+    <method><![CDATA[GET]]></method>
+    <path><![CDATA[/api/v2/customers/5501*]]></path>
+    <request base64="false"><![CDATA[GET /api/v2/customers/5501* HTTP/1.1
+Host: api.[CLIENT].example
+Cookie: GBX_SESSION=a7f3e9c1d…[len=32]
+
+]]></request>
+    <status>200</status>
+  </item>
+</items>

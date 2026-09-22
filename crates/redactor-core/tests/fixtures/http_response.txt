@@ -1,0 +1,8 @@
+HTTP/2 200
+date: Mon, 21 Sep 2026 15:04:05 GMT
+content-type: application/json; charset=utf-8
+set-cookie: GBX_SESSION=0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a; Path=/; Domain=.globexbank.example; Secure; HttpOnly; SameSite=Lax
+x-request-id: 5b2c9e7a-1f3d-4c8b-9a6e-2d7f0b1c3e4a
+server: nginx
+
+{"id": 88127, "owner": {"userId": "usr_8f7a6b5c", "fullName": "Carlos Ruiz", "email": "carlos.ruiz@globexbank.example"}, "balance": 1520.33, "internalHost": "core-ledger.int.globexbank.example", "debug": {"db": "10.40.2.15:5432", "token_type": "Bearer", "access_token": "opaque-7d1f2c9b8a3e4f5d6c7b8a9e0f1d2c3b", "expires_in": 3600}}

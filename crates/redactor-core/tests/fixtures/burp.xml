@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE items [
+<!ELEMENT items (item*)>
+]>
+<items burpVersion="2026.8" exportTime="Mon Sep 21 15:04:05 COT 2026">
+  <item>
+    <time>Mon Sep 21 15:04:05 COT 2026</time>
+    <url><![CDATA[https://api.globexbank.example/api/v2/customers/55012]]></url>
+    <host ip="198.51.100.23">api.globexbank.example</host>
+    <port>443</port>
+    <protocol>https</protocol>
+    <method><![CDATA[GET]]></method>
+    <path><![CDATA[/api/v2/customers/55012]]></path>
+    <request base64="true"><![CDATA[R0VUIC9hcGkvdjIvY3VzdG9tZXJzLzU1MDEyIEhUVFAvMS4xDQpIb3N0OiBhcGkuZ2xvYmV4YmFuay5leGFtcGxlDQpDb29raWU6IEdCWF9TRVNTSU9OPWE3ZjNlOWMxZDViMjA4NGY2ZTFhOWMzZDdiNWYyZTgwDQoNCg==]]></request>
+    <status>200</status>
+  </item>
+</items>

@@ -1,0 +1,8 @@
+HTTP/2 200
+date: Mon, 21 Sep 2026 15:04:05 GMT
+content-type: application/json; charset=utf-8
+set-cookie: GBX_SESSION=0d9c8b7a6…[len=32]; Path=/; Domain=.[CLIENT].example; Secure; HttpOnly; SameSite=Lax
+x-request-id: 5b2c9e7a-1f3d-4c8b-9a6e-2d7f0*******
+server: nginx
+
+{"id": 8812*, "owner": {"userId": "usr_8f7a6***", "fullName": "Car*** Ru**", "email": "car***.ru**@[CLIENT].example"}, "balance": 1520.33, "internalHost": "core-ledger.int.[CLIENT].example", "debug": {"db": "10.40.*.*:5432", "token_type": "Bearer", "access_token": "opaque-7d1f…[len=39]", "expires_in": 3600}}

@@ -1,0 +1,6 @@
+curl -X POST 'https://api.[CLIENT].example/api/v2/users/7712*/password-reset?token=R3s3tT…[len=23]' \
+  -H 'Authorization: Basic [basic-auth sv*_integ******:S3cr…[len=16]]' \
+  -H 'Cookie: GBX_SESSION=a7f3e9c1d…[len=32]' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -u q*.test****:Win…[len=11] \
+  --data 'username=q*.test****&password=Win…[len=11]&client_secret=cs_9a8…[len=23]&redirect_uri=https://portal.[CLIENT].example/cb'

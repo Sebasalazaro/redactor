@@ -1,0 +1,11 @@
+POST /api/v2/accounts/8812*/transfers?session_id=4c9e…[len=16]&lang=es HTTP/1.1
+Host: api.[CLIENT].example
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0.0.0 Safari/537.36
+Authorization: Bearer [JWT header{alg=RS256, typ=JWT, kid=gbx-signing-2***} payload{iss=https://sso.[CLIENT].example/realms/retail, aud=[CLIENT]-mobile, sub=f3b1c2d4-9a7e-4b21-8c3d-5e6f7*******, name=Ju** Pé***, email=ju**.pe***@[CLIENT].example, roles=[customer, [CLIENT]-support], scope=openid profile accounts:read, exp=1790000000, iat=1789996400} sig=…[len=62]]
+Cookie: GBX_SESSION=a7f3e9c1d…[len=32]; theme=…[len=4]; csrftoken=Qm9vdHN0c…[len=30]
+X-Api-Key: gbx_live_…[len=31]
+X-Forwarded-For: 203.*.*.*, 10.12.*.*
+Content-Type: application/json
+Origin: https://portal.[CLIENT].example
+
+{"fromAccountId": 8812*, "toAccountId": "9930*", "amount": 1500.00, "beneficiary": {"name": "Ma*** Gó***", "email": "ma***.go***@exa****-ma**.test", "phone": "+5* 30* 55* 01**"}, "otp": "…[len=6]", "note": "reembolso [CLIENT]", "device": "[DEVICE]", "requestedBy": "q*.test****"}

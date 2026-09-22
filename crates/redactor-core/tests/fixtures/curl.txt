@@ -1,0 +1,6 @@
+curl -X POST 'https://api.globexbank.example/api/v2/users/77120/password-reset?token=R3s3tT0k3n-9f8e7d6c5b4a' \
+  -H 'Authorization: Basic c3ZjX2ludGVncmF0aW9uOlMzY3IzdC1QYTU1dzByZCE=' \
+  -H 'Cookie: GBX_SESSION=a7f3e9c1d5b2084f6e1a9c3d7b5f2e80' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -u qa.tester02:Winter2026! \
+  --data 'username=qa.tester02&password=Winter2026!&client_secret=cs_9a8b7c6d5e4f3a2b1c0d&redirect_uri=https://portal.globexbank.example/cb'

@@ -1,0 +1,8 @@
+2026-09-21T15:04:05Z ERROR [ledger-sync] connection to sr*-db** (10.40.*.*) failed for user q*.test****
+Caused by: java.io.IOException: Connection reset
+    at com.[CLIENT].ledger.SyncJob.run(SyncJob.java:118)
+Nmap scan report for jenkins-int.[CLIENT].example (10.40.*.*)
+PORT     STATE SERVICE
+8080/tcp open  http-proxy
+Found AWS key AKIAIO…[len=20] in /opt/app/config.yml
+-----BEGIN RSA PRIVATE KEY-----[REDACTED]-----END RSA PRIVATE KEY-----
