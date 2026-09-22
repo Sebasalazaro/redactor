@@ -1,0 +1,177 @@
+/* Design tokens shared by both windows. Light and dark follow the system. */
+:root {
+  color-scheme: light dark;
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f0f1f3;
+  --border: #e2e4e8;
+  --text: #16181d;
+  --muted: #5d6470;
+  --accent: #c47a06;
+  --accent-strong: #a86500;
+  --accent-soft: #fdf1dc;
+  --danger: #c2362b;
+  --danger-soft: #fde8e6;
+  --ok: #1f8a4c;
+  --focus: #2f6fe4;
+
+  /* Category families: secrets (warm), identity (violet), network (blue), ids (teal). */
+  --cat-secret: #b45309;
+  --cat-secret-bg: #fef3c7;
+  --cat-identity: #7c3aed;
+  --cat-identity-bg: #ede9fe;
+  --cat-network: #1d4ed8;
+  --cat-network-bg: #dbeafe;
+  --cat-id: #0f766e;
+  --cat-id-bg: #ccfbf1;
+
+  --radius: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318;
+    --surface: #181b21;
+    --surface-2: #20242c;
+    --border: #2c313b;
+    --text: #e6e8ec;
+    --muted: #979eab;
+    --accent: #f5a524;
+    --accent-strong: #ffbb4d;
+    --accent-soft: #3a2a0d;
+    --danger: #ff6b5e;
+    --danger-soft: #3d1a17;
+    --ok: #4ccf82;
+    --focus: #6b9cff;
+
+    --cat-secret: #fbbf24;
+    --cat-secret-bg: #3b2c0c;
+    --cat-identity: #c4b5fd;
+    --cat-identity-bg: #2e2350;
+    --cat-network: #93c5fd;
+    --cat-network-bg: #172a4d;
+    --cat-id: #5eead4;
+    --cat-id-bg: #0f3532;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  height: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--surface-2);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1b1200;
+  font-weight: 600;
+}
+.btn.primary:hover {
+  background: var(--accent-strong);
+}
+.btn.danger {
+  color: var(--danger);
+}
+.btn.primary kbd {
+  border-color: rgb(0 0 0 / 0.25);
+  background: rgb(255 255 255 / 0.35);
+  color: inherit;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+kbd {
+  font: 11px var(--mono);
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Redacted value colors, shared by the review popup and the playground. */
+.cat-private_key,
+.cat-jwt,
+.cat-credential,
+.cat-secret,
+.cat-card {
+  --c: var(--cat-secret);
+  --c-bg: var(--cat-secret-bg);
+}
+.cat-email,
+.cat-pii,
+.cat-client,
+.cat-user,
+.cat-custom {
+  --c: var(--cat-identity);
+  --c-bg: var(--cat-identity-bg);
+}
+.cat-ip,
+.cat-host {
+  --c: var(--cat-network);
+  --c-bg: var(--cat-network-bg);
+}
+.cat-uuid,
+.cat-id {
+  --c: var(--cat-id);
+  --c-bg: var(--cat-id-bg);
+}
+
+.redacted {
+  color: var(--c);
+  background: var(--c-bg);
+  border-radius: 3px;
+  padding: 0 2px;
+}
