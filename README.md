@@ -70,8 +70,9 @@ token belongs to the account being modified.
 A menu bar app for everyday use: copy traffic anywhere, press **⌥⌘R**, check
 the colored diff, press **Enter** and paste. Click any value to reveal or
 re-mask it, or select text and press **M** to mask something the engine missed.
-Engagements switch from the menu bar, and a settings dashboard edits the same
-config files the CLI uses.
+Engagements switch from the menu bar, and a dashboard shows the last
+redaction, live memory use and the effective rules of each engagement, over
+the same config files the CLI uses. Idle, it uses about 70 MB.
 
 ![Desktop flow: copy traffic, press the hotkey, review, paste](docs/desktop-flow.svg)
 

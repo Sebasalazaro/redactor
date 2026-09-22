@@ -12,11 +12,39 @@ copy it.
 - **Review popup:** colored diff by data type, click any value to reveal or
   re-mask it, select text and press `M` to mask something the engine missed,
   `Enter` copies and `Esc` cancels.
-- **Menu bar:** redact now, switch the active engagement, open settings.
-- **Settings dashboard:** hotkey, review mode, global rules, engagement
-  profiles, and a playground to try rules live.
+- **Menu bar:** redact now, open the dashboard, switch the active engagement.
+- **Dashboard:**
+  - *Overview:* the last redaction (copy it again or forget it), the active
+    profile, live memory use with a *Free memory* button, session stats and a
+    summary of every section.
+  - *Engagements:* create one from any name (`Globex Q3 — Web app` is stored
+    as `globex-q3-web.toml`), switch from the sidebar, and see the
+    **effective rules**: what comes from the global config and what from the
+    engagement.
+  - *Global rules*, *Playground* and *Settings* (hotkey, review mode,
+    privacy and memory options). Every change is saved automatically.
 - **Shares its config with the CLI** (`~/.config/redactor`), so both apply the
   same rules.
+
+## Memory
+
+Measured on an Apple Silicon Mac with `scripts/measure-memory.sh` (resident
+memory of the app plus the WebKit processes serving its windows):
+
+| State | Before (v0.1) | Now |
+|---|---|---|
+| Idle in the menu bar | 194 MB | **70 MB** |
+| Dashboard open | 194 MB | 170 MB |
+
+Windows are created when needed and destroyed when closed, which ends their
+WebKit processes (*Unload windows when closed*, on by default). The engine's
+memory is covered by tests with a counting allocator: no bytes retained
+across thousands of redactions, and a peak under 5x the input size.
+
+Sensitive text is kept as briefly as possible: the pending redaction only
+while the popup is open (and removed from the page before it closes), the
+last redaction only as redacted text, in memory, for 15 minutes by default.
+*Free memory* drops both and returns freed pages to the OS.
 
 ## Security
 

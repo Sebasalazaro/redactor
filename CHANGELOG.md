@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Desktop dashboard overview: last redaction (copy again / forget), active
+  profile, live memory use with *Free memory*, session stats and section
+  summaries. Engagements get a card view, quick creation from the sidebar
+  and an effective-rules panel (global vs engagement).
+- Privacy settings: keep the last redaction (auto-forget after 15 min by
+  default), clear the clipboard when a review is cancelled.
+- Engagement display names with spaces and accents; ids are generated.
+- Memory tests with a counting allocator and `scripts/measure-memory.sh`.
 - Desktop app (Tauri, macOS menu bar): global hotkey, review popup with
   reveal/re-mask and manual masking, engagement switching from the menu bar,
   settings dashboard with a live playground.
@@ -19,6 +27,12 @@ All notable changes to this project are documented here. The format follows
 - `redactor` CLI with stdin, file and clipboard modes, `--report`, `--json`
   and `--init`.
 - Golden, leak and determinism tests over fictional fixtures.
+
+### Changed
+- Peak memory of a redaction is ~3x lower (2.8x the input for a HAR export,
+  was 10.3x). `Finding::original` was removed; use `Redaction::original`.
+- Desktop windows are created on demand and unloaded when closed: idle
+  memory drops from 194 MB to 70 MB.
 
 ### Fixed
 - Client names now match regardless of case and accents (`Añil Pagos` ↔

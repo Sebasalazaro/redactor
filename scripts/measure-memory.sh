@@ -6,12 +6,15 @@
 # WebKit (Safari, Mail...) during the run for a clean number.
 #
 # Usage: scripts/measure-memory.sh [path/to/redactor-desktop] [seconds]
+#        FIRST_RUN=1 scripts/measure-memory.sh   # with the dashboard open
 set -euo pipefail
 
 APP=${1:-target/release/bundle/macos/redactor.app/Contents/MacOS/redactor-desktop}
 WAIT=${2:-6}
 CONFIG=$(mktemp -d)
-touch "$CONFIG/config.toml" # not a first run: no dashboard at startup
+# Without a global config the app treats it as a first run and opens the
+# dashboard; with one, it starts with no window at all.
+[ -n "${FIRST_RUN:-}" ] || touch "$CONFIG/config.toml"
 
 webkit() { pgrep -f 'com.apple.WebKit' | sort || true; }
 
