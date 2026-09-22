@@ -4,3 +4,7 @@
 //! exports or plain logs and rewrites the sensitive parts (client names,
 //! hosts, tokens, cookies, identifiers, PII) so the result can be shared with
 //! an LLM without leaking engagement data. Nothing here touches the network.
+
+pub mod config;
+
+pub use config::{Config, ConfigError, CustomTerm, MaskingConfig};

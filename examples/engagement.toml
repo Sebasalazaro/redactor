@@ -1,0 +1,9 @@
+# Engagement profile: layered on top of the global config.
+# Copy to ~/.config/redactor/engagements/<name>.toml
+
+name = "globex-webapp-2026q3"
+
+hosts = ["srv-db01", "jenkins-int"]
+users = ["qa.tester01", "qa.tester02"]
+sensitive_headers = ["X-Globex-Device"]
+sensitive_keys = ["deviceFingerprint"]

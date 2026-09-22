@@ -1,0 +1,19 @@
+# Global configuration: things that rarely change between engagements.
+# Copy to ~/.config/redactor/config.toml and adapt.
+
+# Every spelling of the client's name is replaced by [CLIENT]
+# (spaces, dashes, underscores, dots and CamelCase are handled automatically).
+client = ["Globex Bank", "Globex"]
+
+# Public domains that are safe to leave untouched.
+allow_domains = ["cdn.jsdelivr.net", "fonts.googleapis.com"]
+
+# Your own machine / identity, so it never ends up in a prompt.
+[[terms]]
+value = "MacBook-de-Pentester"
+replacement = "[DEVICE]"
+
+[masking]
+id_cut = 0.2       # 1042 -> 104*        (hide 20% of identifiers)
+secret_keep = 0.3  # keep a 30% prefix of tokens, cookies and keys
+pii_keep = 0.4     # Juan Perez -> Ju** Pe***
