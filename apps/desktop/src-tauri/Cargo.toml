@@ -1,0 +1,22 @@
+[package]
+name = "redactor-desktop"
+description = "Menu bar app: redact the clipboard with a hotkey and review the result before pasting"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+redactor-core = { path = "../../../crates/redactor-core" }
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-global-shortcut = "2"
+thiserror.workspace = true
+toml.workspace = true
