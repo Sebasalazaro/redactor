@@ -2,6 +2,10 @@
 
 **Offline redaction for pentest traffic before it goes to an LLM.**
 
+<p align="center">
+  <img src="docs/images/playground.png" alt="A captured HTTP request on the left and its redacted version on the right: account ids, the host, the session cookie, the IP, the email and the OTP are partially masked" width="860">
+</p>
+
 Pasting captured requests into an AI assistant is a great way to speed up a
 security test, and a great way to leak a client's hosts, session cookies and
 customer data. `redactor` rewrites the sensitive parts of HTTP traffic
