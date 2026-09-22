@@ -10,32 +10,7 @@
   },
   "app": {
     "withGlobalTauri": false,
-    "windows": [
-      {
-        "label": "review",
-        "title": "redactor · Review",
-        "url": "review.html",
-        "width": 880,
-        "height": 600,
-        "minWidth": 560,
-        "minHeight": 360,
-        "center": true,
-        "visible": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true
-      },
-      {
-        "label": "dashboard",
-        "title": "redactor · Settings",
-        "url": "dashboard.html",
-        "width": 1040,
-        "height": 720,
-        "minWidth": 760,
-        "minHeight": 520,
-        "center": true,
-        "visible": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'",
       "freezePrototype": true

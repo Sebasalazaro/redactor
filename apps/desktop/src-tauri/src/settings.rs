@@ -12,11 +12,21 @@ const FILE: &str = "app.toml";
 pub struct AppSettings {
     /// Global shortcut, in Tauri accelerator syntax.
     pub hotkey: String,
-    /// Engagement layered on top of the global config.
+    /// Engagement id layered on top of the global config.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_engagement: Option<String>,
     /// Show the review popup (true) or replace the clipboard silently.
     pub review: bool,
+    /// Keep the last redacted text in memory so it can be copied again.
+    pub keep_last: bool,
+    /// Forget the last redaction after this many minutes (0 = never).
+    pub forget_last_after_minutes: u32,
+    /// Empty the clipboard when a review is cancelled, so the unredacted
+    /// text is not left behind.
+    pub clear_clipboard_on_cancel: bool,
+    /// Destroy windows when they close instead of hiding them. Frees the
+    /// web view processes (~30-40 MB each) at the cost of a slower reopen.
+    pub unload_windows: bool,
 }
 
 impl Default for AppSettings {
@@ -25,6 +35,10 @@ impl Default for AppSettings {
             hotkey: "CommandOrControl+Alt+R".into(),
             active_engagement: None,
             review: true,
+            keep_last: true,
+            forget_last_after_minutes: 15,
+            clear_clipboard_on_cancel: false,
+            unload_windows: true,
         }
     }
 }
@@ -55,4 +69,17 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn older_settings_files_still_load() {
+        let old = "hotkey = \"CommandOrControl+Control+R\"\nreview = true\n";
+        let settings: AppSettings = toml::from_str(old).unwrap();
+        assert_eq!(settings.hotkey, "CommandOrControl+Control+R");
+        assert!(settings.keep_last && settings.unload_windows);
+    }
 }

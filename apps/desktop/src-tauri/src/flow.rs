@@ -1,10 +1,14 @@
-//! The hotkey flow: clipboard → redact → review popup → clipboard.
+//! The hotkey flow (clipboard → redact → review → clipboard) and window
+//! lifecycle.
+//!
+//! Windows are created on demand. With `unload_windows` on, closing one
+//! destroys it, which ends its WebKit process and frees its memory.
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
-use crate::state::AppState;
+use crate::state::{AppState, LastRedaction};
 
 pub const REVIEW: &str = "review";
 pub const DASHBOARD: &str = "dashboard";
@@ -15,38 +19,98 @@ pub fn redact_clipboard(app: &AppHandle) {
     let state = app.state::<AppState>();
     let text = app.clipboard().read_text().unwrap_or_default();
     let redaction = state.redactor().redact(&text);
+    drop(text);
 
     if state.settings().review {
         state.set_pending(Some(redaction));
         show(app, REVIEW);
         let _ = app.emit_to(REVIEW, "review-ready", ());
     } else {
-        let _ = app.clipboard().write_text(redaction.output);
+        let engagement = state.settings().active_engagement;
+        let last = LastRedaction::new(redaction.output.clone(), &redaction, engagement);
+        if app.clipboard().write_text(redaction.output).is_ok() {
+            state.record(last);
+            let _ = app.emit_to(DASHBOARD, "overview-changed", ());
+        }
     }
 }
 
 /// Copies the reviewed text and closes the popup.
 pub fn finish_review(app: &AppHandle, text: String) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let engagement = state.settings().active_engagement;
+    let last = state
+        .with_pending(|pending| pending.map(|r| LastRedaction::new(text.clone(), r, engagement)));
     app.clipboard()
         .write_text(text)
         .map_err(|e| e.to_string())?;
-    cancel_review(app);
+    if let Some(last) = last {
+        state.record(last);
+    }
+    close_review(app);
+    let _ = app.emit_to(DASHBOARD, "overview-changed", ());
     Ok(())
 }
 
+/// Closes the popup without copying. The clipboard still holds the
+/// unredacted text unless `clear_clipboard_on_cancel` is on.
 pub fn cancel_review(app: &AppHandle) {
-    app.state::<AppState>().set_pending(None);
+    if app.state::<AppState>().settings().clear_clipboard_on_cancel {
+        let _ = app.clipboard().write_text(String::new());
+    }
+    close_review(app);
+}
+
+fn close_review(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    state.set_pending(None);
     if let Some(window) = app.get_webview_window(REVIEW) {
-        let _ = window.hide();
+        if state.settings().unload_windows {
+            let _ = window.destroy();
+        } else {
+            let _ = window.hide();
+        }
     }
 }
 
+/// Shows a window, creating it if needed.
 pub fn show(app: &AppHandle, label: &str) {
-    if let Some(window) = app.get_webview_window(label) {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
+    let window = match app.get_webview_window(label) {
+        Some(window) => Ok(window),
+        None => build(app, label),
+    };
+    match window {
+        Ok(window) => {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+        Err(e) => eprintln!("redactor: cannot open {label}: {e}"),
     }
+}
+
+fn build(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
+    let review = label == REVIEW;
+    let page = if review {
+        "review.html"
+    } else {
+        "dashboard.html"
+    };
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(page.into()));
+    let builder = if review {
+        builder
+            .title("redactor · Review")
+            .inner_size(880.0, 600.0)
+            .min_inner_size(560.0, 360.0)
+            .always_on_top(true)
+            .skip_taskbar(true)
+    } else {
+        builder
+            .title("redactor")
+            .inner_size(1120.0, 760.0)
+            .min_inner_size(860.0, 560.0)
+    };
+    builder.center().visible(false).build()
 }
 
 /// Replaces the registered shortcut. The old one is kept if the new one is

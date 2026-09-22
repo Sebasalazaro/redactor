@@ -2,10 +2,12 @@
 //! display; nothing here touches the network.
 
 use redactor_core::Config;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
-use crate::dto::{ReviewDto, StatusDto};
-use crate::flow::{self, DASHBOARD};
+use crate::dto::{EngagementDto, FreedDto, OverviewDto, ReviewDto, StatusDto};
+use crate::flow::{self, DASHBOARD, REVIEW};
+use crate::memory;
 use crate::settings::AppSettings;
 use crate::state::AppState;
 use crate::tray;
@@ -38,6 +40,53 @@ pub fn cancel_review(app: AppHandle) {
 #[tauri::command]
 pub fn mask_text(state: State<AppState>, text: String) -> String {
     state.redactor().mask_secret(&text)
+}
+
+// Overview
+
+#[tauri::command]
+pub fn get_overview(state: State<AppState>) -> OverviewDto {
+    OverviewDto {
+        last: state.last().map(Into::into),
+        memory: state.memory(),
+        redactions: state.redactions(),
+        uptime_secs: state.uptime().as_secs(),
+    }
+}
+
+/// Puts the last redacted text back on the clipboard.
+#[tauri::command]
+pub fn copy_last(app: AppHandle, state: State<AppState>) -> CmdResult<()> {
+    let last = state.last().ok_or("nothing to copy")?;
+    app.clipboard().write_text(last.output).map_err(err)
+}
+
+#[tauri::command]
+pub fn clear_last(state: State<AppState>) {
+    state.clear_last();
+}
+
+#[tauri::command]
+pub fn clear_clipboard(app: AppHandle) -> CmdResult<()> {
+    app.clipboard().write_text(String::new()).map_err(err)
+}
+
+/// Drops everything the session holds (last and pending redactions, the
+/// hidden review window) and returns freed pages to the OS.
+#[tauri::command]
+pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
+    state.clear_last();
+    if let Some(review) = app.get_webview_window(REVIEW) {
+        if !review.is_visible().unwrap_or(true) {
+            state.set_pending(None);
+            let _ = review.destroy();
+        }
+    }
+    let released_bytes = memory::release_free_pages();
+    FreedDto {
+        released_bytes,
+        memory: state.memory(),
+    }
 }
 
 // Dashboard
@@ -90,8 +139,34 @@ pub fn save_global(state: State<AppState>, config: Config) -> CmdResult<()> {
 }
 
 #[tauri::command]
-pub fn list_engagements(state: State<AppState>) -> CmdResult<Vec<String>> {
-    state.store.engagements().map_err(err)
+pub fn list_engagements(state: State<AppState>) -> CmdResult<Vec<EngagementDto>> {
+    engagements(&state)
+}
+
+pub fn engagements(state: &AppState) -> CmdResult<Vec<EngagementDto>> {
+    let mut list = Vec::new();
+    for id in state.store.engagements().map_err(err)? {
+        let config = state.store.load_engagement(&id).map_err(err)?;
+        let name = config.name.clone().unwrap_or_else(|| id.clone());
+        list.push(EngagementDto { id, name, config });
+    }
+    list.sort_by_key(|e| e.name.to_lowercase());
+    Ok(list)
+}
+
+/// Creates an engagement from any display name and returns its id.
+#[tauri::command]
+pub fn create_engagement(
+    app: AppHandle,
+    state: State<AppState>,
+    name: String,
+) -> CmdResult<String> {
+    if name.trim().is_empty() {
+        return Err("the name cannot be empty".into());
+    }
+    let id = state.store.create_engagement(&name).map_err(err)?;
+    tray::refresh(&app);
+    Ok(id)
 }
 
 #[tauri::command]

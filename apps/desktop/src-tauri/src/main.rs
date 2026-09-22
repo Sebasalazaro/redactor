@@ -6,12 +6,15 @@
 mod commands;
 mod dto;
 mod flow;
+mod memory;
 mod settings;
 mod state;
 mod tray;
 
+use std::time::Duration;
+
 use redactor_core::Store;
-use tauri::{Manager, RunEvent, WindowEvent};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_global_shortcut::ShortcutState;
 
 use crate::flow::{DASHBOARD, REVIEW};
@@ -48,15 +51,29 @@ fn main() {
             if first_run {
                 flow::show(handle, DASHBOARD);
             }
+
+            // Forget the last redaction once it expires, even if nobody looks.
+            let handle = handle.clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(Duration::from_secs(30));
+                    if handle.state::<AppState>().forget_expired() {
+                        let _ = handle.emit_to(DASHBOARD, "overview-changed", ());
+                    }
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing a window hides it; the app lives in the menu bar.
+            // The app lives in the menu bar: closing a window unloads it
+            // (or hides it, if the user prefers faster reopening).
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
+                let app = window.app_handle();
                 if window.label() == REVIEW {
-                    flow::cancel_review(window.app_handle());
-                } else {
+                    api.prevent_close();
+                    flow::cancel_review(app);
+                } else if !app.state::<AppState>().settings().unload_windows {
+                    api.prevent_close();
                     let _ = window.hide();
                 }
             }
@@ -66,6 +83,12 @@ fn main() {
             commands::finish_review,
             commands::cancel_review,
             commands::mask_text,
+            commands::get_overview,
+            commands::copy_last,
+            commands::clear_last,
+            commands::clear_clipboard,
+            commands::free_memory,
+            commands::create_engagement,
             commands::preview,
             commands::get_status,
             commands::get_settings,

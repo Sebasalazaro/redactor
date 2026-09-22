@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 redactor-core = { path = "../../../crates/redactor-core" }
 serde.workspace = true
 serde_json.workspace = true
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-global-shortcut = "2"

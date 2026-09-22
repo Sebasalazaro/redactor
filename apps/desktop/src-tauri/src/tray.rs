@@ -4,6 +4,7 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, Wry};
 
+use crate::commands;
 use crate::flow::{self, DASHBOARD};
 use crate::state::AppState;
 
@@ -44,27 +45,28 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         active.is_none(),
         None::<&str>,
     )?)?;
-    let names = state.store.engagements().unwrap_or_default();
-    if !names.is_empty() {
+    let list = commands::engagements(&state).unwrap_or_default();
+    if !list.is_empty() {
         engagements.append(&PredefinedMenuItem::separator(app)?)?;
     }
-    for name in names {
-        let id = format!("{ENGAGEMENT_PREFIX}{name}");
-        let checked = active == Some(name.as_str());
+    let mut active_name = None;
+    for e in &list {
+        let checked = active == Some(e.id.as_str());
+        if checked {
+            active_name = Some(e.name.as_str());
+        }
+        let id = format!("{ENGAGEMENT_PREFIX}{}", e.id);
         engagements.append(&CheckMenuItem::with_id(
             app,
             id,
-            &name,
+            &e.name,
             true,
             checked,
             None::<&str>,
         )?)?;
     }
 
-    let status = match &settings.active_engagement {
-        Some(name) => format!("Profile: {name}"),
-        None => "Profile: global".into(),
-    };
+    let status = format!("Profile: {}", active_name.unwrap_or("global"));
     Menu::with_items(
         app,
         &[
@@ -100,6 +102,7 @@ fn on_menu(app: &AppHandle, id: &str) {
                 settings.active_engagement = (!name.is_empty()).then(|| name.to_string());
                 if state.set_settings(settings).is_ok() {
                     let _ = app.emit_to(DASHBOARD, "settings-changed", ());
+                    let _ = app.emit_to(DASHBOARD, "overview-changed", ());
                 }
                 refresh(app);
             }
