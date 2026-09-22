@@ -19,23 +19,32 @@ use serde::{Deserialize, Serialize};
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     /// Human readable name of the profile (e.g. the engagement id).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// Client names. Each one is replaced by `[CLIENT]` wherever it appears,
     /// including common spellings (`Globex Bank` → `globex-bank`, `GlobexBank`, ...).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub client: Vec<String>,
     /// Usernames or people that must be partially masked.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub users: Vec<String>,
     /// Hosts in scope. Useful for internal names that are not FQDNs (`srv-db01`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hosts: Vec<String>,
     /// Arbitrary terms with an explicit replacement (device names, project codenames).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub terms: Vec<CustomTerm>,
     /// Public domains that are never masked (CDNs, standards bodies, ...).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub allow_domains: Vec<String>,
     /// Extra HTTP header names whose values are secrets.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sensitive_headers: Vec<String>,
     /// Extra JSON / query / form keys whose values are secrets.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sensitive_keys: Vec<String>,
     /// How much of each value stays visible. Defaults apply when omitted.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub masking: Option<MaskingConfig>,
 }
 
@@ -45,7 +54,7 @@ pub struct Config {
 pub struct CustomTerm {
     pub value: String,
     /// Defaults to `[REDACTED]`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement: Option<String>,
 }
 
@@ -82,6 +91,10 @@ pub enum ConfigError {
     Parse(#[from] toml::de::Error),
     #[error("masking.{field} = {value} is out of range (expected 0.0..=1.0)")]
     Ratio { field: &'static str, value: f64 },
+    #[error("cannot serialize config: {0}")]
+    Serialize(#[from] toml::ser::Error),
+    #[error("invalid engagement name {0:?} (use letters, digits, '-', '_' or '.')")]
+    InvalidName(String),
 }
 
 impl Config {
@@ -100,6 +113,12 @@ impl Config {
             source,
         })?;
         Self::from_toml(&source)
+    }
+
+    /// Serializes to TOML, omitting empty fields.
+    pub fn to_toml(&self) -> Result<String, ConfigError> {
+        self.validate()?;
+        Ok(toml::to_string_pretty(self)?)
     }
 
     /// Returns a new config with `engagement` layered on top of `self`.
@@ -178,6 +197,17 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn serializes_compactly() {
+        let config = Config {
+            client: vec!["Globex".into()],
+            ..Default::default()
+        };
+        let toml = config.to_toml().unwrap();
+        assert_eq!(toml.trim(), r#"client = ["Globex"]"#);
+        assert_eq!(Config::from_toml(&toml).unwrap(), config);
     }
 
     #[test]

@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use redactor_core::{Category, Config, Redaction, Redactor};
+use redactor_core::{Category, Config, Redaction, Redactor, Store};
 
 const EXAMPLE_CONFIG: &str = include_str!("../../../examples/config.toml");
 const EXAMPLE_ENGAGEMENT: &str = include_str!("../../../examples/engagement.toml");
@@ -52,13 +52,14 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let dir = config_dir()?;
+    let store =
+        Store::open_default().context("cannot locate the config dir; set REDACTOR_CONFIG_DIR")?;
 
     if cli.init {
-        return init(&dir);
+        return init(&store);
     }
 
-    let config = load_config(&cli, &dir)?;
+    let config = load_config(&cli, &store)?;
     let redactor = Redactor::new(&config);
 
     let input = if cli.clipboard {
@@ -83,35 +84,22 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// `$REDACTOR_CONFIG_DIR`, `$XDG_CONFIG_HOME/redactor` or `~/.config/redactor`.
-fn config_dir() -> Result<PathBuf> {
-    if let Some(dir) = std::env::var_os("REDACTOR_CONFIG_DIR") {
-        return Ok(dir.into());
-    }
-    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Ok(PathBuf::from(xdg).join("redactor"));
-    }
-    let home = std::env::var_os("HOME").context("HOME is not set")?;
-    Ok(PathBuf::from(home).join(".config/redactor"))
-}
-
-fn load_config(cli: &Cli, dir: &Path) -> Result<Config> {
+fn load_config(cli: &Cli, store: &Store) -> Result<Config> {
     let global = match &cli.config {
         Some(path) => Config::load(path)?,
-        None if dir.join("config.toml").exists() => Config::load(dir.join("config.toml"))?,
-        None => Config::default(),
+        None => store.load_global()?,
     };
     let Some(engagement) = &cli.engagement else {
         return Ok(global);
     };
     let path = Path::new(engagement);
-    let path = if path.exists() {
-        path.to_path_buf()
+    let profile = if path.exists() {
+        Config::load(path)?
     } else {
-        dir.join("engagements").join(format!("{engagement}.toml"))
+        store
+            .load_engagement(engagement)
+            .with_context(|| format!("loading engagement {engagement:?}"))?
     };
-    let profile =
-        Config::load(&path).with_context(|| format!("loading engagement {engagement:?}"))?;
     Ok(global.with_engagement(&profile))
 }
 
@@ -128,13 +116,14 @@ fn read_input(path: Option<&Path>) -> Result<String> {
     }
 }
 
-fn init(dir: &Path) -> Result<()> {
-    let config = dir.join("config.toml");
-    let engagement = dir.join("engagements/example.toml");
+fn init(store: &Store) -> Result<()> {
+    let config = store.global_path();
+    let engagement = store.engagement_path("example")?;
     if config.exists() {
         bail!("{} already exists", config.display());
     }
-    std::fs::create_dir_all(dir.join("engagements"))?;
+    std::fs::create_dir_all(engagement.parent().unwrap())?;
+    // Written verbatim (not through Store::save_*) to keep the comments.
     std::fs::write(&config, EXAMPLE_CONFIG)?;
     std::fs::write(&engagement, EXAMPLE_ENGAGEMENT)?;
     eprintln!(

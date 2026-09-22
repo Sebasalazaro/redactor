@@ -22,6 +22,7 @@ pub mod format;
 mod jwt;
 pub mod mask;
 mod redactor;
+pub mod store;
 mod tld;
 
 pub use config::{Config, ConfigError, CustomTerm, MaskingConfig};
@@ -29,3 +30,4 @@ pub use dictionary::{CLIENT_PLACEHOLDER, DEFAULT_TERM_PLACEHOLDER};
 pub use finding::{Category, Finding};
 pub use format::InputFormat;
 pub use redactor::{Redaction, Redactor};
+pub use store::Store;
