@@ -8,6 +8,8 @@ mod http;
 mod keys;
 mod patterns;
 
+use std::collections::HashSet;
+
 use crate::dictionary::{CLIENT_PLACEHOLDER, TermKind};
 use crate::finding::{Category, Finding};
 use crate::jwt;
@@ -19,18 +21,19 @@ pub(crate) struct Scan<'a> {
     pub text: &'a str,
     pub depth: usize,
     out: Vec<Finding>,
+    /// Spans already handled by [`Scan::token`]. The same JWT is often found
+    /// by several detectors (regex, header, JSON key); decode it once.
+    tokens: HashSet<(usize, usize)>,
 }
 
 impl<'a> Scan<'a> {
     /// Records a finding unless the replacement is a no-op.
     pub fn push(&mut self, start: usize, end: usize, category: Category, replacement: String) {
-        let original = &self.text[start..end];
-        if start < end && replacement != original {
+        if start < end && replacement != self.text[start..end] {
             self.out.push(Finding {
                 start,
                 end,
                 category,
-                original: original.to_string(),
                 replacement,
             });
         }
@@ -39,6 +42,9 @@ impl<'a> Scan<'a> {
     /// Records an opaque credential value: decoded if it is a JWT, otherwise
     /// masked as a secret.
     pub fn token(&mut self, start: usize, end: usize) {
+        if !self.tokens.insert((start, end)) {
+            return;
+        }
         let text = self.text;
         let value = &text[start..end];
         match jwt::render(self.r, value, self.depth) {
@@ -57,6 +63,7 @@ pub(crate) fn scan(r: &Redactor, text: &str, depth: usize) -> Vec<Finding> {
         text,
         depth,
         out: Vec::new(),
+        tokens: HashSet::new(),
     };
     patterns::detect(&mut scan);
     http::detect(&mut scan);

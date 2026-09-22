@@ -53,15 +53,14 @@ impl std::fmt::Display for Category {
 /// A span of the input that was rewritten.
 ///
 /// `start` and `end` are byte offsets into the normalized input (for Burp
-/// exports, the text after base64 bodies were decoded).
+/// exports, the text after base64 bodies were decoded). The original value is
+/// not copied: read it with [`crate::Redaction::original`]. Serializing a
+/// finding therefore can never leak it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Finding {
     pub start: usize,
     pub end: usize,
     pub category: Category,
-    /// The original value. Never serialized, so reports cannot leak it.
-    #[serde(skip)]
-    pub original: String,
     pub replacement: String,
 }
 

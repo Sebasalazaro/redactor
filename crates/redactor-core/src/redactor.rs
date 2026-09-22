@@ -79,10 +79,18 @@ pub struct Redaction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Segment<'a> {
     Plain(&'a str),
-    Redacted(&'a Finding),
+    Redacted {
+        finding: &'a Finding,
+        original: &'a str,
+    },
 }
 
 impl Redaction {
+    /// The original value behind a finding of this redaction.
+    pub fn original(&self, finding: &Finding) -> &str {
+        &self.input[finding.start..finding.end]
+    }
+
     /// The input split into untouched text and findings, in order. Joining
     /// plain text with each finding's replacement yields [`Self::output`];
     /// joining it with the originals yields the input.
@@ -93,7 +101,10 @@ impl Redaction {
             if finding.start > cursor {
                 segments.push(Segment::Plain(&self.input[cursor..finding.start]));
             }
-            segments.push(Segment::Redacted(finding));
+            segments.push(Segment::Redacted {
+                finding,
+                original: self.original(finding),
+            });
             cursor = finding.end;
         }
         if cursor < self.input.len() {
@@ -255,28 +266,31 @@ pub(crate) fn normalize_key(key: &str) -> String {
 /// Picks a non-overlapping subset of findings: higher priority categories
 /// first, then longer spans. Returned sorted by position.
 fn resolve(mut findings: Vec<Finding>) -> Vec<Finding> {
-    findings.sort_by(|a, b| {
+    findings.sort_unstable_by(|a, b| {
         a.category
             .cmp(&b.category)
             .then(b.len().cmp(&a.len()))
             .then(a.start.cmp(&b.start))
     });
-    // start -> finding; accepted spans never overlap, so only the closest
-    // span starting before `end` can collide with a candidate.
-    let mut accepted: BTreeMap<usize, Finding> = BTreeMap::new();
-    for finding in findings {
-        if finding.is_empty() {
-            continue;
-        }
+    // start -> end of accepted spans. They never overlap, so only the closest
+    // span starting before a candidate's end can collide with it.
+    let mut accepted: BTreeMap<usize, usize> = BTreeMap::new();
+    let mut keep = vec![false; findings.len()];
+    for (i, f) in findings.iter().enumerate() {
         let collides = accepted
-            .range(..finding.end)
+            .range(..f.end)
             .next_back()
-            .is_some_and(|(_, prev)| prev.end > finding.start);
-        if !collides {
-            accepted.insert(finding.start, finding);
+            .is_some_and(|(_, &end)| end > f.start);
+        if !f.is_empty() && !collides {
+            accepted.insert(f.start, f.end);
+            keep[i] = true;
         }
     }
-    accepted.into_values().collect()
+    let mut keep = keep.into_iter();
+    findings.retain(|_| keep.next().unwrap());
+    findings.sort_unstable_by_key(|f| f.start);
+    findings.shrink_to_fit();
+    findings
 }
 
 fn apply(text: &str, findings: &[Finding]) -> String {
@@ -301,7 +315,6 @@ mod tests {
             start,
             end,
             category,
-            original: String::new(),
             replacement: String::new(),
         }
     }
@@ -334,9 +347,9 @@ mod tests {
                     output.push_str(text);
                     input.push_str(text);
                 }
-                Segment::Redacted(f) => {
-                    output.push_str(&f.replacement);
-                    input.push_str(&f.original);
+                Segment::Redacted { finding, original } => {
+                    output.push_str(&finding.replacement);
+                    input.push_str(original);
                 }
             }
         }

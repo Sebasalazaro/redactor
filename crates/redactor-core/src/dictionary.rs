@@ -75,7 +75,7 @@ impl Matcher {
             .find_iter(&folded.text)
             .filter_map(|m| {
                 let id = m.pattern().as_usize();
-                let (start, end) = (folded.offsets[m.start()], folded.offsets[m.end()]);
+                let (start, end) = (folded.original(m.start()), folded.original(m.end()));
                 if self.strict[id] && !on_word_boundary(text, start, end) {
                     return None;
                 }
@@ -89,26 +89,46 @@ impl Matcher {
     }
 }
 
-/// A lowercase, accent-free copy of a text. `offsets[i]` is the byte offset in
-/// the original text of the character that produced folded byte `i`, plus a
-/// final entry for the end of the text.
+/// A lowercase, accent-free copy of a text that maps positions back to the
+/// original. Folding `É` (2 bytes) to `e` (1 byte) shifts every later offset;
+/// only those shift points are stored, so ASCII text needs no map at all.
 struct Folded {
     text: String,
-    offsets: Vec<usize>,
+    /// `(folded offset, original - folded)` from that offset on, ascending.
+    shifts: Vec<(usize, isize)>,
+}
+
+impl Folded {
+    /// Original byte offset of a folded character boundary.
+    fn original(&self, folded: usize) -> usize {
+        let i = self.shifts.partition_point(|&(pos, _)| pos <= folded);
+        let delta = if i == 0 { 0 } else { self.shifts[i - 1].1 };
+        (folded as isize + delta) as usize
+    }
 }
 
 fn fold(text: &str) -> Folded {
-    let mut folded = String::with_capacity(text.len());
-    let mut offsets = Vec::with_capacity(text.len() + 1);
-    for (i, c) in text.char_indices() {
-        let f = fold_char(c);
-        offsets.extend(std::iter::repeat_n(i, f.len_utf8()));
-        folded.push(f);
+    if text.is_ascii() {
+        return Folded {
+            text: text.to_ascii_lowercase(),
+            shifts: Vec::new(),
+        };
     }
-    offsets.push(text.len());
+    let mut folded = String::with_capacity(text.len());
+    let mut shifts = Vec::new();
+    let mut delta = 0isize;
+    for c in text.chars() {
+        let f = fold_char(c);
+        folded.push(f);
+        let diff = c.len_utf8() as isize - f.len_utf8() as isize;
+        if diff != 0 {
+            delta += diff;
+            shifts.push((folded.len(), delta));
+        }
+    }
     Folded {
         text: folded,
-        offsets,
+        shifts,
     }
 }
 
@@ -304,12 +324,17 @@ mod tests {
     }
 
     #[test]
-    fn folding_keeps_offsets() {
-        let folded = fold("Éxito ñ");
-        assert_eq!(folded.text, "exito n");
-        assert_eq!(folded.offsets[0], 0);
-        assert_eq!(folded.offsets[1], 2); // 'É' is two bytes
-        assert_eq!(*folded.offsets.last().unwrap(), "Éxito ñ".len());
+    fn folding_maps_offsets_back() {
+        let text = "Éxito ñandú ok";
+        let folded = fold(text);
+        assert_eq!(folded.text, "exito nandu ok");
+        for (i, _) in folded.text.char_indices() {
+            let original = folded.original(i);
+            assert!(text.is_char_boundary(original));
+            assert_eq!(fold(&text[original..]).text, folded.text[i..]);
+        }
+        assert_eq!(folded.original(folded.text.len()), text.len());
+        assert!(fold("plain ascii").shifts.is_empty());
     }
 
     #[test]

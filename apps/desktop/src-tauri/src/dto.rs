@@ -30,10 +30,10 @@ impl ReviewDto {
             .into_iter()
             .map(|segment| match segment {
                 Segment::Plain(text) => SegmentDto::Plain { text: text.into() },
-                Segment::Redacted(f) => SegmentDto::Redacted {
-                    category: f.category,
-                    original: f.original.clone(),
-                    replacement: f.replacement.clone(),
+                Segment::Redacted { finding, original } => SegmentDto::Redacted {
+                    category: finding.category,
+                    original: original.into(),
+                    replacement: finding.replacement.clone(),
                 },
             })
             .collect();
