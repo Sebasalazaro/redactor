@@ -40,6 +40,60 @@
     }
   }
 
+  // Autosave: every edit is written shortly after the user stops typing.
+  // `saved` holds the last JSON written (or loaded) per document, so loading
+  // a document never triggers a save.
+  type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
+  let saveState = $state<SaveState>("idle");
+  let saveError = $state("");
+  const saved = new Map<string, string>();
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  function markSaved(key: string, value: unknown) {
+    saved.set(key, JSON.stringify(value));
+  }
+
+  function autosave(key: string, value: unknown, save: () => Promise<unknown>) {
+    const json = JSON.stringify(value);
+    if (!saved.has(key) || saved.get(key) === json) return;
+    saveState = "pending";
+    clearTimeout(timers.get(key));
+    timers.set(
+      key,
+      setTimeout(async () => {
+        saveState = "saving";
+        try {
+          await save();
+          saved.set(key, json);
+          saveState = "saved";
+          status = await api.getStatus();
+        } catch (e) {
+          saveState = "error";
+          saveError = String(e);
+        }
+      }, 500),
+    );
+  }
+
+  $effect(() => {
+    if (!settings) return;
+    const value = $state.snapshot(settings);
+    autosave("settings", value, () => api.saveSettings(value));
+  });
+
+  $effect(() => {
+    if (!global) return;
+    const value = $state.snapshot(global);
+    autosave("global", value, () => api.saveGlobal(value));
+  });
+
+  $effect(() => {
+    if (!engagement || !selected) return;
+    const name = selected;
+    const value = $state.snapshot(engagement);
+    autosave(`engagement:${name}`, value, () => api.saveEngagement(name, value));
+  });
+
   async function loadAll() {
     [status, settings, global, engagements] = await Promise.all([
       api.getStatus(),
@@ -47,13 +101,17 @@
       api.getGlobal(),
       api.listEngagements(),
     ]);
+    markSaved("settings", settings);
+    markSaved("global", global);
     if (selected && engagements.includes(selected)) await select(selected);
   }
 
   async function select(name: string) {
     selected = name;
     confirmDelete = false;
-    engagement = await api.getEngagement(name);
+    const loaded = await api.getEngagement(name);
+    markSaved(`engagement:${name}`, loaded);
+    engagement = loaded;
   }
 
   async function create() {
@@ -85,7 +143,9 @@
   onMount(() => {
     loadAll();
     const unlisten = listen("settings-changed", async () => {
-      settings = await api.getSettings();
+      const fresh = await api.getSettings();
+      markSaved("settings", fresh);
+      settings = fresh;
     });
     return () => {
       unlisten.then((f) => f());
@@ -111,6 +171,17 @@
   </nav>
 
   <main>
+    <div class="save-state" class:bad={saveState === "error"} aria-live="polite">
+      {#if saveState === "pending" || saveState === "saving"}
+        Saving…
+      {:else if saveState === "saved"}
+        ✓ All changes saved
+      {:else if saveState === "error"}
+        Couldn't save: {saveError}
+      {:else}
+        Changes save automatically
+      {/if}
+    </div>
     {#if status?.error}
       <div class="banner">Configuration error: {status.error}</div>
     {/if}
@@ -153,20 +224,10 @@
           <code class="path">{status?.config_dir}</code>
         </div>
       </div>
-      <div class="save">
-        <button class="btn primary" onclick={() => settings && run(() => api.saveSettings(settings!), "Settings saved")}
-          >Save</button
-        >
-      </div>
     {:else if section === "global" && global}
       <h2>Global rules</h2>
       <p class="lead">Apply to every engagement. Put the client's name here.</p>
       <RulesEditor bind:config={global} scope="global" />
-      <div class="save">
-        <button class="btn primary" onclick={() => global && run(() => api.saveGlobal(global!), "Global rules saved")}
-          >Save</button
-        >
-      </div>
     {:else if section === "engagements"}
       <h2>Engagements</h2>
       <div class="split">
@@ -198,14 +259,6 @@
               </button>
             </div>
             <RulesEditor bind:config={engagement} scope="engagement" />
-            <div class="save">
-              <button
-                class="btn primary"
-                onclick={() =>
-                  engagement && selected && run(() => api.saveEngagement(selected!, engagement!), `Saved ${selected}`)}
-                >Save</button
-              >
-            </div>
           {:else}
             <p class="lead">Pick an engagement or create one. Names become file names.</p>
           {/if}
@@ -344,10 +397,18 @@
     font-size: 12px;
     color: var(--muted);
   }
-  .save {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 16px;
+  main {
+    position: relative;
+  }
+  .save-state {
+    position: absolute;
+    top: 28px;
+    right: 32px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .save-state.bad {
+    color: var(--danger);
   }
   .split {
     display: grid;
