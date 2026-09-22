@@ -70,6 +70,37 @@ pub struct Redaction {
     pub output: String,
     pub format: InputFormat,
     pub findings: Vec<Finding>,
+    /// The normalized input the findings point into. Never serialized.
+    #[serde(skip)]
+    pub input: String,
+}
+
+/// A piece of a [`Redaction`]: untouched text or a redacted value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Segment<'a> {
+    Plain(&'a str),
+    Redacted(&'a Finding),
+}
+
+impl Redaction {
+    /// The input split into untouched text and findings, in order. Joining
+    /// plain text with each finding's replacement yields [`Self::output`];
+    /// joining it with the originals yields the input.
+    pub fn segments(&self) -> Vec<Segment<'_>> {
+        let mut segments = Vec::with_capacity(self.findings.len() * 2 + 1);
+        let mut cursor = 0;
+        for finding in &self.findings {
+            if finding.start > cursor {
+                segments.push(Segment::Plain(&self.input[cursor..finding.start]));
+            }
+            segments.push(Segment::Redacted(finding));
+            cursor = finding.end;
+        }
+        if cursor < self.input.len() {
+            segments.push(Segment::Plain(&self.input[cursor..]));
+        }
+        segments
+    }
 }
 
 /// A compiled redaction policy. Build it once and reuse it: construction
@@ -119,6 +150,7 @@ impl Redactor {
             output,
             format,
             findings,
+            input: normalized.into_owned(),
         }
     }
 
@@ -284,6 +316,31 @@ mod tests {
         ]);
         let spans: Vec<_> = kept.iter().map(|f| (f.start, f.end)).collect();
         assert_eq!(spans, [(2, 5), (20, 30), (40, 50)]);
+    }
+
+    #[test]
+    fn segments_rebuild_output_and_input() {
+        let r = Redactor::new(&Config {
+            client: vec!["Globex".into()],
+            ..Default::default()
+        });
+        let redaction = r.redact("GET /users/88127 HTTP/1.1\nHost: api.globex.example\n");
+        let (mut output, mut input) = (String::new(), String::new());
+        for segment in redaction.segments() {
+            match segment {
+                Segment::Plain(text) => {
+                    output.push_str(text);
+                    input.push_str(text);
+                }
+                Segment::Redacted(f) => {
+                    output.push_str(&f.replacement);
+                    input.push_str(&f.original);
+                }
+            }
+        }
+        assert_eq!(output, redaction.output);
+        assert_eq!(input, redaction.input);
+        assert_eq!(redaction.findings.len(), 2);
     }
 
     #[test]
