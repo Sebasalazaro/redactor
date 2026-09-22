@@ -1,0 +1,18 @@
+[package]
+name = "redactor-ner"
+description = "Optional local named-entity recognition for redactor, running GLiNER models with ONNX Runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+ort.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokenizers.workspace = true

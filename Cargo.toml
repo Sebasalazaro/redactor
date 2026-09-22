@@ -1,9 +1,14 @@
 [workspace]
 resolver = "3"
-members = ["crates/redactor-core", "crates/redactor-cli", "apps/desktop/src-tauri"]
+members = [
+  "crates/redactor-core",
+  "crates/redactor-cli",
+  "crates/redactor-ner",
+  "apps/desktop/src-tauri",
+]
 # The desktop app needs platform webview libraries; build it explicitly with
 # `-p redactor-desktop` (see apps/desktop/README.md).
-default-members = ["crates/redactor-core", "crates/redactor-cli"]
+default-members = ["crates/redactor-core", "crates/redactor-cli", "crates/redactor-ner"]
 
 [workspace.package]
 version = "0.1.0"
@@ -19,10 +24,14 @@ aho-corasick = "1"
 anyhow = "1"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
+# ONNX Runtime is downloaded once at build time; no HTTP client is compiled in
+# (no `fetch-models`), and tokenizers is built without its `http` feature.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs"] }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 thiserror = "2"
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
 toml = "0.8"
 
 [profile.release]
