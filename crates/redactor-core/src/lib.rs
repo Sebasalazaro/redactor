@@ -6,5 +6,7 @@
 //! an LLM without leaking engagement data. Nothing here touches the network.
 
 pub mod config;
+mod dictionary;
+pub mod mask;
 
 pub use config::{Config, ConfigError, CustomTerm, MaskingConfig};
