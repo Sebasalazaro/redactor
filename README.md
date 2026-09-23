@@ -1,6 +1,6 @@
-# redactor
+<h1 align="center">redactor</h1>
 
-**Offline redaction for pentest traffic before it goes to an LLM.**
+<p align="center"><strong>Offline redaction for pentest traffic before it goes to an LLM.</strong></p>
 
 <p align="center">
   <img src="docs/images/demo.svg" alt="Animated demo: a request copied from Burp, the hotkey, the review popup highlighting each redacted value, then Copy" width="820">
@@ -13,9 +13,17 @@ customer data. `redactor` rewrites the sensitive parts of HTTP traffic
 about the request: token types, JWT claims, id relationships, internal vs.
 external IPs.
 
-[![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
-![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)
-![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)
+<p align="center">
+  <a href="https://github.com/Sebasalazaro/redactor/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Sebasalazaro/redactor/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white">
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri_2-24C8D8?style=for-the-badge&logo=tauri&logoColor=white">
+  <img alt="Svelte 5" src="https://img.shields.io/badge/Svelte_5-FF3E00?style=for-the-badge&logo=svelte&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
+  <img alt="ONNX Runtime" src="https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white">
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="100% offline" src="https://img.shields.io/badge/100%25-Offline-15803D?style=for-the-badge">
+  <img alt="License: MIT or Apache-2.0" src="https://img.shields.io/badge/License-MIT_%2F_Apache--2.0-green?style=for-the-badge">
+</p>
 
 ```http
 POST /api/v2/accounts/88127/transfers HTTP/1.1
