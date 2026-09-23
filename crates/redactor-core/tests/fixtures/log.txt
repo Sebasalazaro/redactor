@@ -8,3 +8,4 @@ Found AWS key AKIAIOSFODNN7EXAMPLE in /opt/app/config.yml
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAfakefakefakefakefakefakefakefakefakefake
 -----END RSA PRIVATE KEY-----
+Accepted connection from 2001:db8:85a3::8a2e:370:7334 port 51512 (fe80::1ff:fe23:4567:890a%en0)

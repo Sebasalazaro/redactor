@@ -59,6 +59,10 @@ static IPV4: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 
+/// IPv6 candidates; each one is confirmed with `Ipv6Addr::from_str`.
+static IPV6: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}").unwrap());
+
 static DOMAIN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+(?P<tld>[A-Za-z]{2,24})\b")
         .unwrap()
@@ -141,6 +145,12 @@ pub(super) fn detect(scan: &mut Scan) {
         }
     }
 
+    for m in IPV6.find_iter(text) {
+        if is_ipv6(text, m.start(), m.end()) {
+            scan.push(m.start(), m.end(), Category::Ip, mask::ipv6(m.as_str()));
+        }
+    }
+
     for caps in DOMAIN.captures_iter(text) {
         let m = caps.get(0).unwrap();
         if tld::is_known(&caps["tld"].to_ascii_lowercase()) && !continues_dotted(text, m.end()) {
@@ -176,8 +186,66 @@ fn is_ip_context(text: &str, start: usize, end: usize) -> bool {
     )
 }
 
+/// A real IPv6 address, not a C++ path (`std::string`), a MAC address, a
+/// time (`12:30:45`) or the IPv6 prefix of an embedded IPv4 address.
+fn is_ipv6(text: &str, start: usize, end: usize) -> bool {
+    let candidate = &text[start..end];
+    let glued =
+        |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || matches!(c, '_' | ':' | '.'));
+    if glued(text[..start].chars().next_back()) || glued(text[end..].chars().next()) {
+        return false;
+    }
+    let groups = candidate.split(':').filter(|g| !g.is_empty()).count();
+    let has_digit = candidate.chars().any(|c| c.is_ascii_digit());
+    groups >= 2
+        && has_digit
+        && candidate != "::1"
+        && candidate.parse::<std::net::Ipv6Addr>().is_ok()
+}
+
 /// `java.io.File` style identifiers: the match is followed by `.` + letter.
 fn continues_dotted(text: &str, end: usize) -> bool {
     let mut rest = text[end..].chars();
     rest.next() == Some('.') && rest.next().is_some_and(|c| c.is_ascii_alphanumeric())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Category, Config, Redactor};
+
+    fn ips(text: &str) -> Vec<String> {
+        let r = Redactor::new(&Config::default());
+        let redaction = r.redact(text);
+        redaction
+            .findings
+            .iter()
+            .filter(|f| f.category == Category::Ip)
+            .map(|f| format!("{} -> {}", redaction.original(f), f.replacement))
+            .collect()
+    }
+
+    #[test]
+    fn detects_ipv6() {
+        assert_eq!(
+            ips("from 2001:db8:85a3::8a2e:370:7334 via fe80::1ff:fe23:4567:890a"),
+            [
+                "2001:db8:85a3::8a2e:370:7334 -> 2001::*",
+                "fe80::1ff:fe23:4567:890a -> fe80::*"
+            ]
+        );
+        assert_eq!(ips("[2001:db8::42]:8443"), ["2001:db8::42 -> 2001::*"]);
+    }
+
+    #[test]
+    fn ignores_things_that_look_like_ipv6() {
+        for text in [
+            "std::string and a::b::c",
+            "at 12:30:45 today",
+            "mac 00:1A:2B:3C:4D:5E",
+            "localhost ::1",
+            "ts=2026-09-23T10:20:30Z",
+        ] {
+            assert!(ips(text).is_empty(), "{text}: {:?}", ips(text));
+        }
+    }
 }

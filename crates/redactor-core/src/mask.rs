@@ -113,6 +113,23 @@ pub fn ipv4(ip: &str) -> String {
         .join(".")
 }
 
+/// Masks an IPv6 address down to its first group, which is enough to tell
+/// link-local (`fe80`), unique-local (`fd..`) and global addresses apart.
+///
+/// ```
+/// use redactor_core::mask::ipv6;
+/// assert_eq!(ipv6("2001:db8:85a3::8a2e:370:7334"), "2001::*");
+/// assert_eq!(ipv6("fe80::1ff:fe23:4567:890a"), "fe80::*");
+/// ```
+pub fn ipv6(ip: &str) -> String {
+    let first = ip
+        .split(':')
+        .next()
+        .filter(|g| !g.is_empty())
+        .unwrap_or("0");
+    format!("{first}::*")
+}
+
 fn is_private_ipv4(octets: &[&str]) -> bool {
     let n: Vec<u8> = octets.iter().filter_map(|o| o.parse().ok()).collect();
     matches!(

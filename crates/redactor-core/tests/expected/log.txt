@@ -6,3 +6,4 @@ PORT     STATE SERVICE
 8080/tcp open  http-proxy
 Found AWS key AKIAIO…[len=20] in /opt/app/config.yml
 -----BEGIN RSA PRIVATE KEY-----[REDACTED]-----END RSA PRIVATE KEY-----
+Accepted connection from 2001::* port 51512 (fe80::*%en0)
