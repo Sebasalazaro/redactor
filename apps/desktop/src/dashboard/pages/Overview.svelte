@@ -13,7 +13,7 @@
   import { ago, bytes, format, hotkey } from "../../lib/format";
   import NewEngagement from "../components/NewEngagement.svelte";
 
-  type Section = "overview" | "engagements" | "global" | "playground" | "settings";
+  type Section = "overview" | "restore" | "engagements" | "global" | "playground" | "settings";
 
   let {
     settings,

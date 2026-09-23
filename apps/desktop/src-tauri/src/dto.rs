@@ -110,3 +110,9 @@ pub struct ForgottenDto {
     pub reason: Forgotten,
     pub secs_ago: u64,
 }
+
+#[derive(Debug, Serialize)]
+pub struct VaultDto {
+    pub profile: String,
+    pub entries: usize,
+}

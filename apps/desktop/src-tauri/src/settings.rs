@@ -24,6 +24,9 @@ pub struct AppSettings {
     /// Empty the clipboard when a review is cancelled, so the unredacted
     /// text is not left behind.
     pub clear_clipboard_on_cancel: bool,
+    /// Remember redacted values in the profile's encrypted vault, so LLM
+    /// answers can be restored.
+    pub remember: bool,
     /// Destroy windows when they close instead of hiding them. Frees the
     /// web view processes (~30-40 MB each) at the cost of a slower reopen.
     pub unload_windows: bool,
@@ -38,6 +41,7 @@ impl Default for AppSettings {
             keep_last: true,
             forget_last_after_minutes: 60,
             clear_clipboard_on_cancel: false,
+            remember: true,
             unload_windows: true,
         }
     }

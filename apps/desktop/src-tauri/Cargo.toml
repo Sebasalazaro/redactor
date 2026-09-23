@@ -8,11 +8,14 @@ license.workspace = true
 authors.workspace = true
 publish = false
 
+[dev-dependencies]
+keyring.workspace = true
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-redactor-core = { path = "../../../crates/redactor-core" }
+redactor-core = { path = "../../../crates/redactor-core", features = ["keychain"] }
 redactor-ner = { path = "../../../crates/redactor-ner" }
 serde.workspace = true
 serde_json.workspace = true

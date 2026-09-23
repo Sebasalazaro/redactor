@@ -9,6 +9,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::state::{AppState, LastRedaction};
+use crate::vault::Pair;
 
 pub const REVIEW: &str = "review";
 pub const DASHBOARD: &str = "dashboard";
@@ -28,22 +29,62 @@ pub fn redact_clipboard(app: &AppHandle) {
     } else {
         let engagement = state.settings().active_engagement;
         let last = LastRedaction::new(redaction.output.clone(), &redaction, engagement);
+        let pairs = redaction
+            .findings
+            .iter()
+            .map(|f| Pair {
+                replacement: f.replacement.clone(),
+                original: redaction.original(f).to_string(),
+            })
+            .collect();
         if app.clipboard().write_text(redaction.output).is_ok() {
             state.record(last);
+            remember(app, pairs);
             let _ = app.emit_to(DASHBOARD, "overview-changed", ());
         }
     }
 }
 
-/// Copies the reviewed text and closes the popup.
-pub fn finish_review(app: &AppHandle, text: String) -> Result<(), String> {
+/// Copies the reviewed text and closes the popup. `pairs` are the values
+/// that stayed masked (revealed ones are not included), for the vault.
+pub fn finish_review(app: &AppHandle, text: String, pairs: Vec<Pair>) -> Result<(), String> {
     app.clipboard()
         .write_text(text.clone())
         .map_err(|e| e.to_string())?;
     app.state::<AppState>().complete_review(&text);
+    remember(app, pairs);
     close_review(app);
     let _ = app.emit_to(DASHBOARD, "overview-changed", ());
     Ok(())
+}
+
+/// Adds what was just copied to the active profile's vault, off the calling
+/// thread: the first access may wait on a keychain prompt.
+fn remember(app: &AppHandle, pairs: Vec<Pair>) {
+    if pairs.is_empty() || !app.state::<AppState>().settings().remember {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let profile = state.profile();
+        if let Err(e) = state.vaults.remember(&state.store, &profile, &pairs) {
+            eprintln!("redactor: cannot update the vault: {e}");
+        }
+    });
+}
+
+/// Puts the real values back into the LLM answer on the clipboard.
+pub fn restore_clipboard(app: &AppHandle) -> Result<(usize, usize), String> {
+    let state = app.state::<AppState>();
+    let text = app.clipboard().read_text().unwrap_or_default();
+    let restoration = state
+        .vaults
+        .restore(&state.store, &state.profile(), &text)?;
+    app.clipboard()
+        .write_text(restoration.text())
+        .map_err(|e| e.to_string())?;
+    Ok((restoration.restored(), restoration.ambiguous()))
 }
 
 /// Closes the popup without copying. The clipboard still holds the

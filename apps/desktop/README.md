@@ -15,7 +15,12 @@ copy it.
 - **Deep scan (AI):** in the popup, runs the local GLiNER model over the text
   and masks names, organizations, usernames, addresses and phone numbers the
   patterns missed (dashed outline). Needs `scripts/fetch-model.sh` once.
-- **Menu bar:** redact now, open the dashboard, switch the active engagement.
+- **Restore:** paste an LLM answer in the dashboard (or use *Restore
+  clipboard* in the menu bar) and the redacted values you shared become the
+  real ones again. Values that stayed masked in the popup, including manual
+  and AI masks, go to the active profile's encrypted vault.
+- **Menu bar:** redact now, restore, open the dashboard, switch the active
+  engagement.
 - **Dashboard:**
   - *Overview:* the last redaction (copy it again or forget it), the active
     profile, live memory use with a *Free memory* button, session stats and a

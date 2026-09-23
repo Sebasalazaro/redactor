@@ -5,12 +5,16 @@ use redactor_core::Config;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-use crate::dto::{EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto};
+use crate::dto::{
+    EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto, VaultDto,
+};
 use crate::flow::{self, DASHBOARD, REVIEW};
 use crate::memory;
 use crate::settings::AppSettings;
 use crate::state::{AppState, Forgotten};
 use crate::tray;
+use crate::vault::Pair;
+use redactor_core::Restoration;
 
 type CmdResult<T> = Result<T, String>;
 
@@ -28,8 +32,53 @@ pub fn get_review(state: State<AppState>) -> Option<ReviewDto> {
 }
 
 #[tauri::command]
-pub fn finish_review(app: AppHandle, text: String) -> CmdResult<()> {
-    flow::finish_review(&app, text)
+pub fn finish_review(app: AppHandle, text: String, pairs: Vec<Pair>) -> CmdResult<()> {
+    flow::finish_review(&app, text, pairs)
+}
+
+// Reversible mode
+
+/// Puts the real values back into an LLM answer. May wait on a keychain
+/// prompt the first time, so it runs off the main thread.
+#[tauri::command]
+pub async fn restore_text(app: AppHandle, text: String) -> CmdResult<Restoration> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        state.vaults.restore(&state.store, &state.profile(), &text)
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+pub async fn restore_clipboard(app: AppHandle) -> CmdResult<(usize, usize)> {
+    tauri::async_runtime::spawn_blocking(move || flow::restore_clipboard(&app))
+        .await
+        .map_err(err)?
+}
+
+/// Profile of the active engagement and how many values its vault holds.
+#[tauri::command]
+pub async fn vault_info(app: AppHandle) -> CmdResult<VaultDto> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let profile = state.profile();
+        let entries = state.vaults.len(&state.store, &profile)?;
+        Ok(VaultDto { profile, entries })
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Copies text chosen in the dashboard (a restored answer).
+#[tauri::command]
+pub fn copy_text(app: AppHandle, text: String) -> CmdResult<()> {
+    app.clipboard().write_text(text).map_err(err)
+}
+
+#[tauri::command]
+pub fn forget_vault(state: State<AppState>) -> CmdResult<()> {
+    state.vaults.forget(&state.store, &state.profile())
 }
 
 #[tauri::command]
@@ -111,6 +160,7 @@ pub fn clear_clipboard(app: AppHandle) -> CmdResult<()> {
 pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
     state.clear_last(Forgotten::Freed);
     state.ai.unload();
+    state.vaults.unload();
     if let Some(review) = app.get_webview_window(REVIEW) {
         if !review.is_visible().unwrap_or(true) {
             state.set_pending(None);

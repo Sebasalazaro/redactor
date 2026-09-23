@@ -59,6 +59,7 @@ export interface AppSettings {
   keep_last: boolean;
   forget_last_after_minutes: number;
   clear_clipboard_on_cancel: boolean;
+  remember: boolean;
   unload_windows: boolean;
 }
 
@@ -97,6 +98,17 @@ export interface Overview {
   ai_loaded: boolean;
 }
 
+/** A redacted value and the original it replaced, for the vault. */
+export interface Pair {
+  replacement: string;
+  original: string;
+}
+
+export type RestorePart =
+  | { kind: "plain"; text: string }
+  | { kind: "restored"; original: string; replacement: string }
+  | { kind: "ambiguous"; replacement: string; candidates: string[] };
+
 /** An entity found by the local AI model, in UTF-16 offsets of the scanned text. */
 export interface AiEntity {
   start: number;
@@ -133,7 +145,7 @@ export function normalizeConfig(raw: Partial<Config>): Config {
 
 export const api = {
   getReview: () => invoke<Review | null>("get_review"),
-  finishReview: (text: string) => invoke<void>("finish_review", { text }),
+  finishReview: (text: string, pairs: Pair[]) => invoke<void>("finish_review", { text, pairs }),
   cancelReview: () => invoke<void>("cancel_review"),
   maskText: (text: string) => invoke<string>("mask_text", { text }),
   deepScan: (text: string) => invoke<AiEntity[]>("deep_scan", { text }),
@@ -150,6 +162,11 @@ export const api = {
   createEngagement: (name: string) => invoke<string>("create_engagement", { name }),
   getOverview: () => invoke<Overview>("get_overview"),
   redactNow: () => invoke<void>("redact_now"),
+  restoreText: (text: string) => invoke<{ parts: RestorePart[] }>("restore_text", { text }),
+  restoreClipboard: () => invoke<[number, number]>("restore_clipboard"),
+  vaultInfo: () => invoke<{ profile: string; entries: number }>("vault_info"),
+  forgetVault: () => invoke<void>("forget_vault"),
+  copyText: (text: string) => invoke<void>("copy_text", { text }),
   closeWindow: () => invoke<void>("close_window"),
   copyLast: () => invoke<void>("copy_last"),
   clearLast: () => invoke<void>("clear_last"),

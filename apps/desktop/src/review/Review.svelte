@@ -123,8 +123,14 @@
   async function confirm() {
     try {
       const text = compose(items);
+      // What stayed masked goes to the vault; revealed values are not needed.
+      const pairs = items.flatMap((s) =>
+        s.kind === "redacted" && !s.revealed
+          ? [{ replacement: s.replacement, original: s.original }]
+          : [],
+      );
       forget();
-      await api.finishReview(text);
+      await api.finishReview(text, pairs);
     } catch (e) {
       error = String(e);
     }

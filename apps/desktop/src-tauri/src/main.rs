@@ -11,6 +11,7 @@ mod memory;
 mod settings;
 mod state;
 mod tray;
+mod vault;
 
 use std::time::Duration;
 
@@ -114,6 +115,11 @@ fn main() {
             commands::redact_now,
             commands::close_window,
             commands::deep_scan,
+            commands::restore_text,
+            commands::restore_clipboard,
+            commands::vault_info,
+            commands::forget_vault,
+            commands::copy_text,
             commands::preview,
             commands::get_status,
             commands::get_settings,

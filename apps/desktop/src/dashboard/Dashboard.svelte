@@ -7,9 +7,10 @@
   import Engagements from "./pages/Engagements.svelte";
   import GlobalRules from "./pages/GlobalRules.svelte";
   import Overview from "./pages/Overview.svelte";
+  import Restore from "./pages/Restore.svelte";
   import Settings from "./pages/Settings.svelte";
 
-  type Section = "overview" | "engagements" | "global" | "playground" | "settings";
+  type Section = "overview" | "restore" | "engagements" | "global" | "playground" | "settings";
 
   let section = $state<Section>("overview");
   let status = $state<Status | null>(null);
@@ -98,6 +99,7 @@
 
   const NAV: { id: Section; label: string }[] = [
     { id: "overview", label: "Overview" },
+    { id: "restore", label: "Restore" },
     { id: "engagements", label: "Engagements" },
     { id: "global", label: "Global rules" },
     { id: "playground", label: "Playground" },
@@ -156,6 +158,8 @@
           onactivate={activate}
           oncreated={created}
         />
+      {:else if section === "restore"}
+        <Restore {settings} profileName={active?.name ?? "the global profile"} />
       {:else if section === "engagements"}
         <Engagements
           {settings}

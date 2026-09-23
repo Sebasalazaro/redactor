@@ -80,6 +80,13 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
                 true,
                 None::<&str>,
             )?,
+            &MenuItem::with_id(
+                app,
+                "restore",
+                "Restore clipboard (real values)",
+                settings.remember,
+                None::<&str>,
+            )?,
             &MenuItem::with_id(app, "dashboard", "Open dashboard…", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "status", status, false, None::<&str>)?,
@@ -94,6 +101,14 @@ fn on_menu(app: &AppHandle, id: &str) {
     match id {
         "redact" => flow::redact_clipboard(app),
         "dashboard" => flow::show(app, DASHBOARD),
+        "restore" => {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                if let Err(e) = flow::restore_clipboard(&app) {
+                    eprintln!("redactor: cannot restore: {e}");
+                }
+            });
+        }
         "quit" => app.exit(0),
         _ => {
             if let Some(name) = id.strip_prefix(ENGAGEMENT_PREFIX) {

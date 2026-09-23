@@ -52,6 +52,16 @@
   </div>
   <div class="row">
     <div>
+      <strong>Remember redacted values (reversible mode)</strong>
+      <p>
+        Keeps what you copy in an encrypted vault per profile (AES-256-GCM, key in the macOS Keychain),
+        so <em>Restore</em> can put the real values back into an LLM answer.
+      </p>
+    </div>
+    <input type="checkbox" class="toggle" bind:checked={settings.remember} />
+  </div>
+  <div class="row">
+    <div>
       <strong>Clear the clipboard when a review is cancelled</strong>
       <p>Otherwise the original, unredacted text stays on the clipboard.</p>
     </div>
