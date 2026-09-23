@@ -3,7 +3,7 @@
 **Offline redaction for pentest traffic before it goes to an LLM.**
 
 <p align="center">
-  <img src="docs/images/playground.png" alt="A captured HTTP request on the left and its redacted version on the right: account ids, the host, the session cookie, the IP, the email and the OTP are partially masked" width="860">
+  <img src="docs/images/demo.svg" alt="Animated demo: a request copied from Burp, the hotkey, the review popup highlighting each redacted value, then Copy" width="820">
 </p>
 
 Pasting captured requests into an AI assistant is a great way to speed up a
@@ -85,9 +85,7 @@ Engagements switch from the menu bar, and a dashboard shows the last
 redaction, live memory use and the effective rules of each engagement, over
 the same config files the CLI uses. Idle, it uses about 70 MB.
 
-<p align="center">
-  <img src="docs/images/demo.svg" alt="Animated demo: a request copied from Burp, the hotkey, the review popup highlighting each redacted value, then Copy" width="820">
-</p>
+![Desktop flow: copy traffic, press the hotkey, review, paste](docs/desktop-flow.svg)
 
 See [apps/desktop](apps/desktop) to build it.
 
