@@ -60,7 +60,7 @@ token belongs to the account being modified.
   | Secrets (cookies, API keys, passwords) | `a7f3e9c1d…[len=32]` | ~30 % prefix + length |
   | Identifiers | `834512` → `8345**`, UUID tail hidden | ~20 % cut |
   | Personal data | `Juan Pérez` → `Ju** Pé***` | head of each word |
-  | IPv4 | `10.12.4.21` → `10.12.*.*`, `203.0.113.45` → `203.*.*.*` | keeps internal/external hint |
+  | IPv4 / IPv6 | `10.12.4.21` → `10.12.*.*`, `2001:db8::42` → `2001::*` | keeps internal/external hint |
   | Cards | `4111 **** **** 1111` | Luhn-validated |
   | Private keys, vendor tokens | AWS, GitHub, GitLab, Stripe, Slack, Google... | always |
 
@@ -68,6 +68,10 @@ token belongs to the account being modified.
   place, while hosts, test users and device names change per test.
 - **Tested against leaks.** Every fixture has planted secrets, and the test
   suite asserts that none of them survive redaction.
+- **Reversible mode.** What you share is remembered in an encrypted vault
+  per engagement (AES-256-GCM, key in the OS keychain), so an LLM's answer can
+  be turned back into real values: paste it into *Restore* or run
+  `redactor --restore`. Ambiguous values are never guessed.
 - **Optional AI deep scan.** A local GLiNER model finds what patterns cannot
   (a person's or company's name in free text). It runs on demand, in a
   separate process that exits when idle, and is never downloaded by the app.
@@ -113,6 +117,8 @@ pbpaste | redactor | pbcopy                 # pipe (macOS)
 redactor --clipboard -e globex-q3           # rewrite the clipboard in place
 redactor request.txt --report               # summary on stderr
 redactor export.har --json > findings.json  # findings without original values
+redactor --remember -p -e globex-q3         # redact the clipboard and remember the values
+redactor --restore -p -e globex-q3          # put real values back into an LLM answer
 ```
 
 `-e` takes either a path or the name of a file in
@@ -169,11 +175,15 @@ non-overlapping set, so adding a detector never corrupts the output. More in
 ## Security model
 
 - `redactor` reduces risk; it does not remove the need to look at what you
-  paste. Always review the output. The desktop app (see roadmap) will make
-  that review a single keystroke.
+  paste. Always review the output; the desktop app makes that review a
+  single keystroke.
 - Everything runs locally. The core crate has no networking dependencies, and
   the desktop app has a strict CSP and exposes no plugins to its webviews.
 - Findings serialized with `--json` never include original values.
+- The reversible-mode vault is the only place real values are stored. It is
+  encrypted with AES-256-GCM (the profile id bound as associated data), its
+  key never leaves the OS keychain, and it can be turned off or wiped per
+  profile.
 - Partially masked values are designed to be unusable (for example, secrets
   never show more than 12 characters), but they are not encryption.
 
@@ -185,7 +195,8 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 - [x] **Desktop app (Tauri):** global hotkey, review popup with a diff, menu bar, settings dashboard
 - [x] **Local NER (GLiNER, ONNX):** on-demand deep scan of names, organizations, usernames, addresses, fully offline
 - [ ] **Multilingual model:** span-level GLiNER models (e.g. `gliner_multi_pii-v1`) for Spanish and other languages
-- [ ] **Reversible mode:** per-engagement mapping encrypted with AES-GCM, key stored in the macOS Keychain, to restore real values in LLM answers
+- [x] **Reversible mode:** per-engagement vault encrypted with AES-256-GCM, key in the OS keychain, to restore real values in LLM answers
+- [x] **IPv6** detection
 - [ ] **Optional encrypted history** of redactions
 
 ## Development

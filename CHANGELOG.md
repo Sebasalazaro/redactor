@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Reversible mode: an encrypted vault per profile (AES-256-GCM, key in the
+  OS keychain) remembers what was shared; the dashboard's *Restore* page, the
+  menu bar and `redactor --restore` put real values back into LLM answers.
+  Ambiguous values are listed, never guessed.
+- IPv6 detection and masking.
 - AI deep scan: `redactor-ner` runs GLiNER models locally with ONNX Runtime;
   the review popup's **Deep scan (AI)** masks names, organizations,
   usernames, addresses and phone numbers, in a worker process that exits
