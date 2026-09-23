@@ -4,6 +4,8 @@
 //! pbpaste | redactor | pbcopy          # pipe
 //! redactor --clipboard -e globex-q3    # rewrite the clipboard in place (macOS)
 //! redactor request.txt --report        # file, with a summary on stderr
+//! redactor --remember -p               # redact the clipboard, remember values
+//! redactor --restore -p                # put real values back in an LLM answer
 //! ```
 
 mod clipboard;
@@ -14,7 +16,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use redactor_core::{Category, Config, Redaction, Redactor, Store};
+use redactor_core::store::{GLOBAL_PROFILE, slugify};
+use redactor_core::vault::VaultKey;
+use redactor_core::{Category, Config, Redaction, Redactor, RestorePart, Store};
 
 const EXAMPLE_CONFIG: &str = include_str!("../../../examples/config.toml");
 const EXAMPLE_ENGAGEMENT: &str = include_str!("../../../examples/engagement.toml");
@@ -45,6 +49,16 @@ struct Cli {
     #[arg(long)]
     json: bool,
 
+    /// Remember redacted values in the profile's encrypted vault, so answers
+    /// can be restored later with --restore.
+    #[arg(long, conflicts_with = "restore")]
+    remember: bool,
+
+    /// Restore an LLM answer: put back the real values remembered with
+    /// --remember. Ambiguous values are left as is and listed on stderr.
+    #[arg(long, conflicts_with_all = ["json", "init"])]
+    restore: bool,
+
     /// Create a starter config and engagement in the config dir, then exit.
     #[arg(long)]
     init: bool,
@@ -60,14 +74,26 @@ fn main() -> Result<()> {
     }
 
     let config = load_config(&cli, &store)?;
-    let redactor = Redactor::new(&config);
-
     let input = if cli.clipboard {
         clipboard::read()?
     } else {
         read_input(cli.input.as_deref())?
     };
+
+    if cli.restore {
+        return restore(&cli, &store, &input);
+    }
+
+    let redactor = Redactor::new(&config);
     let redaction = redactor.redact(&input);
+
+    if cli.remember {
+        let profile = profile(&cli, &store)?;
+        let key = vault_key()?;
+        let mut vault = store.load_vault(&profile, &key)?;
+        vault.record_redaction(&redaction);
+        store.save_vault(&profile, &vault, &key)?;
+    }
 
     if cli.clipboard {
         clipboard::write(&redaction.output)?;
@@ -82,6 +108,70 @@ fn main() -> Result<()> {
         eprintln!("{}", summary(&redaction, config.name.as_deref()));
     }
     Ok(())
+}
+
+fn restore(cli: &Cli, store: &Store, input: &str) -> Result<()> {
+    let profile = profile(cli, store)?;
+    let vault = store.load_vault(&profile, &vault_key()?)?;
+    let restoration = vault.restore(input);
+    let text = restoration.text();
+    if cli.clipboard {
+        clipboard::write(&text)?;
+    } else {
+        std::io::stdout().write_all(text.as_bytes())?;
+    }
+    for part in &restoration.parts {
+        if let RestorePart::Ambiguous {
+            replacement,
+            candidates,
+        } = part
+        {
+            eprintln!(
+                "redactor: {replacement:?} is ambiguous: {}",
+                candidates.join(" | ")
+            );
+        }
+    }
+    if cli.report || cli.clipboard {
+        eprintln!(
+            "redactor: {} values restored, {} ambiguous · profile={profile}",
+            restoration.restored(),
+            restoration.ambiguous()
+        );
+    }
+    Ok(())
+}
+
+/// Vault profile: the engagement's id, or the global profile.
+fn profile(cli: &Cli, store: &Store) -> Result<String> {
+    let Some(engagement) = &cli.engagement else {
+        return Ok(GLOBAL_PROFILE.to_string());
+    };
+    let path = Path::new(engagement);
+    if path.exists() {
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(engagement);
+        return Ok(slugify(stem));
+    }
+    Ok(store.find_engagement(engagement)?)
+}
+
+/// The vault key from the OS keychain. `REDACTOR_VAULT_KEY` (64 hex
+/// characters) overrides it, for tests and automation only.
+fn vault_key() -> Result<VaultKey> {
+    if let Ok(hex) = std::env::var("REDACTOR_VAULT_KEY") {
+        let bytes: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(hex.get(i..i + 2).unwrap_or("zz"), 16))
+            .collect::<Result<_, _>>()
+            .context("REDACTOR_VAULT_KEY must be 64 hex characters")?;
+        return bytes
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("REDACTOR_VAULT_KEY must be 64 hex characters"));
+    }
+    Ok(redactor_core::keychain::vault_key()?)
 }
 
 fn load_config(cli: &Cli, store: &Store) -> Result<Config> {
