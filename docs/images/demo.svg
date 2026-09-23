@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 360" width="820" height="360" role="img" aria-labelledby="t d">
+<title id="t">redactor demo</title>
+<desc id="d">A request is copied, the hotkey is pressed, and the review popup shows it with the account id, host, session cookie, IP, email and OTP partially masked; Enter copies the redacted text.</desc>
+<style>
+svg { --bg:#f7f7f8; --surface:#fff; --border:#e2e4e8; --text:#16181d; --muted:#5d6470; --primary:#14532d; --onprimary:#dcfce7;
+  --s:#b45309; --sbg:#fef3c7; --p:#7c3aed; --pbg:#ede9fe; --n:#1d4ed8; --nbg:#dbeafe; --i:#0f766e; --ibg:#ccfbf1; }
+@media (prefers-color-scheme: dark) { svg { --bg:#111318; --surface:#181b21; --border:#2c313b; --text:#e6e8ec; --muted:#979eab; --primary:#166534;
+  --s:#fbbf24; --sbg:#3b2c0c; --p:#c4b5fd; --pbg:#2e2350; --n:#93c5fd; --nbg:#172a4d; --i:#5eead4; --ibg:#0f3532; } }
+text { font: 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: var(--text); }
+.ui { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.muted { fill: var(--muted); }
+.bg { fill: var(--bg); } .card { fill: var(--surface); stroke: var(--border); }
+.hs { fill: var(--sbg); } .hp { fill: var(--pbg); } .hn { fill: var(--nbg); } .hi { fill: var(--ibg); }
+.ts { fill: var(--s); } .tp { fill: var(--p); } .tn { fill: var(--n); } .ti { fill: var(--i); }
+.clip, .key, .popup, .hl, .enter, .toast { animation: 10s linear infinite; opacity: 0; }
+.clip { animation-name: clip; } .key { animation-name: key; } .popup { animation-name: popup; }
+.enter { animation-name: enter; } .toast { animation-name: toast; }
+@keyframes clip { 0%,26% { opacity:1 } 31%,100% { opacity:0 } }
+@keyframes key { 0%,14% { opacity:0 } 17%,27% { opacity:1 } 31%,100% { opacity:0 } }
+@keyframes popup { 0%,31% { opacity:0 } 35%,93% { opacity:1 } 97%,100% { opacity:0 } }
+@keyframes enter { 0%,66% { opacity:0 } 68%,76% { opacity:1 } 79%,100% { opacity:0 } }
+@keyframes toast { 0%,74% { opacity:0 } 77%,91% { opacity:1 } 95%,100% { opacity:0 } }
+@keyframes hl0{0%,40.0%{opacity:0}42.0%,92%{opacity:1}96%,100%{opacity:0}}
+@keyframes hl1{0%,41.6%{opacity:0}43.6%,92%{opacity:1}96%,100%{opacity:0}}
+@keyframes hl2{0%,43.2%{opacity:0}45.2%,92%{opacity:1}96%,100%{opacity:0}}
+@keyframes hl3{0%,44.8%{opacity:0}46.8%,92%{opacity:1}96%,100%{opacity:0}}
+@keyframes hl4{0%,46.4%{opacity:0}48.4%,92%{opacity:1}96%,100%{opacity:0}}
+@keyframes hl5{0%,48.0%{opacity:0}50.0%,92%{opacity:1}96%,100%{opacity:0}}
+@keyframes hl6{0%,49.6%{opacity:0}51.6%,92%{opacity:1}96%,100%{opacity:0}}
+.highlights .hl:nth-child(1){animation-name:hl0}
+.highlights .hl:nth-child(2){animation-name:hl1}
+.highlights .hl:nth-child(3){animation-name:hl2}
+.highlights .hl:nth-child(4){animation-name:hl3}
+.highlights .hl:nth-child(5){animation-name:hl4}
+.highlights .hl:nth-child(6){animation-name:hl5}
+.highlights .hl:nth-child(7){animation-name:hl6}
+@media (prefers-reduced-motion: reduce) { .clip,.key,.enter,.toast { animation: none; opacity: 0; } .popup,.hl { animation: none; opacity: 1; } }
+</style>
+<rect class="bg" width="820" height="360" rx="12"/>
+
+<g class="clip">
+  <text class="ui muted" x="82.40000000000003" y="70">Copied from Burp</text>
+  <rect class="card" x="66.40000000000003" y="88" width="687" height="152" rx="10"/>
+  <text x="82.40000000000003" y="118" textLength="358.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">POST /api/v2/accounts/88127/transfers HTTP/1.1</text>
+<text x="82.40000000000003" y="139" textLength="218.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">Host: api.globexbank.example</text>
+<text x="82.40000000000003" y="160" textLength="405.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">Cookie: GBX_SESSION=a7f3e9c1d5b2084f6e1a9c3d7b5f2e80</text>
+<text x="82.40000000000003" y="181" textLength="226.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">X-Forwarded-For: 203.0.113.45</text>
+<text x="82.40000000000003" y="223" textLength="655.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">{&quot;toAccountId&quot;: &quot;99301&quot;, &quot;email&quot;: &quot;maria.gomez@globexbank.example&quot;, &quot;otp&quot;: &quot;482913&quot;}</text>
+</g>
+
+<g class="key">
+  <rect class="card" x="366.0" y="290" width="88" height="40" rx="8"/>
+  <text class="ui" x="410.0" y="316" text-anchor="middle" style="font-size:18px;font-weight:600">⌃⌘R</text>
+</g>
+
+<g class="popup">
+  <rect class="card" x="58.400000000000034" y="36" width="703" height="279" rx="12"/>
+  <circle cx="78.40000000000003" cy="58" r="5" fill="#ff5f57"/><circle cx="94.40000000000003" cy="58" r="5" fill="#febc2e"/><circle cx="110.40000000000003" cy="58" r="5" fill="#28c840"/>
+  <text class="ui" x="128.40000000000003" y="63" style="font-weight:600">Review before copying</text>
+  <text class="ui muted" x="82.40000000000003" y="100">7 redacted · id 2 · host 1 · secret 2 · ip 1 · email 1</text>
+  <g class="highlights"><rect class="hl hi" x="252.0" y="136" width="43.0" height="19" rx="3"/>
+<rect class="hl hn" x="127.2" y="157" width="160.0" height="19" rx="3"/>
+<rect class="hl hs" x="236.4" y="178" width="144.4" height="19" rx="3"/>
+<rect class="hl hn" x="213.0" y="199" width="74.2" height="19" rx="3"/>
+<rect class="hl hi" x="213.0" y="241" width="43.0" height="19" rx="3"/>
+<rect class="hl hp" x="353.4" y="241" width="222.4" height="19" rx="3"/>
+<rect class="hl hs" x="657.6" y="241" width="66.4" height="19" rx="3"/></g>
+  <text x="82.40000000000003" y="150" textLength="358.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">POST /api/v2/accounts/<tspan class="ti">8812*</tspan>/transfers HTTP/1.1</text>
+<text x="82.40000000000003" y="171" textLength="202.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">Host: <tspan class="tn">api.[CLIENT].example</tspan></text>
+<text x="82.40000000000003" y="192" textLength="296.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">Cookie: GBX_SESSION=<tspan class="ts">a7f3e9c1d…[len=32]</tspan></text>
+<text x="82.40000000000003" y="213" textLength="202.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">X-Forwarded-For: <tspan class="tn">203.*.*.*</tspan></text>
+<text x="82.40000000000003" y="255" textLength="655.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">{&quot;toAccountId&quot;: &quot;<tspan class="ti">9930*</tspan>&quot;, &quot;email&quot;: &quot;<tspan class="tp">ma***.go***@[CLIENT].example</tspan>&quot;, &quot;otp&quot;: &quot;<tspan class="ts">…[len=6]</tspan>&quot;}</text>
+  <text class="ui muted" x="82.40000000000003" y="289">Click a value to reveal it · select + M to mask by hand</text>
+  <g class="enter">
+    <rect x="652" y="270" width="86" height="28" rx="7" style="fill:var(--primary)"/>
+    <text class="ui" x="695" y="289" text-anchor="middle" style="fill:var(--onprimary);font-weight:600">Copy ↵</text>
+  </g>
+</g>
+
+<g class="toast">
+  <rect x="290.0" y="320" width="240" height="32" rx="16" style="fill:var(--primary)"/>
+  <text class="ui" x="410.0" y="341" text-anchor="middle" style="fill:var(--onprimary);font-weight:600">✓ Copied, ready to paste</text>
+</g>
+</svg>
