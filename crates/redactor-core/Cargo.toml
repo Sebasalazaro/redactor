@@ -9,8 +9,15 @@ authors.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+# Stores the vault key in the OS keychain (macOS Keychain, Windows
+# Credential Manager, Linux kernel keyring).
+keychain = ["dep:keyring"]
+
 [dependencies]
+aes-gcm.workspace = true
 aho-corasick.workspace = true
+keyring = { workspace = true, optional = true }
 base64.workspace = true
 regex.workspace = true
 serde.workspace = true

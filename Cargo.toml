@@ -20,10 +20,12 @@ keywords = ["security", "pentest", "redaction", "privacy", "llm"]
 categories = ["command-line-utilities", "text-processing"]
 
 [workspace.dependencies]
+aes-gcm = "0.10"
 aho-corasick = "1"
 anyhow = "1"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
+keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native", "linux-native"] }
 # ONNX Runtime is downloaded once at build time; no HTTP client is compiled in
 # (no `fetch-models`), and tokenizers is built without its `http` feature.
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs"] }

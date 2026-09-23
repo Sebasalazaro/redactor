@@ -20,9 +20,15 @@ use std::path::{Path, PathBuf};
 
 use crate::config::{Config, ConfigError};
 use crate::dictionary::fold_char;
+use crate::vault::{Vault, VaultError, VaultKey};
 
 const GLOBAL_FILE: &str = "config.toml";
 const ENGAGEMENTS_DIR: &str = "engagements";
+const VAULTS_DIR: &str = "vaults";
+
+/// Vault profile used when no engagement is active. Engagement ids never
+/// start with `_`, so it cannot collide with one.
+pub const GLOBAL_PROFILE: &str = "_global";
 
 /// Access to the config dir.
 #[derive(Debug, Clone)]
@@ -64,7 +70,7 @@ impl Store {
     }
 
     pub fn save_global(&self, config: &Config) -> Result<(), ConfigError> {
-        write_private(&self.global_path(), &config.to_toml()?)
+        write_private(&self.global_path(), config.to_toml()?.as_bytes())
     }
 
     /// Names of the saved engagements, sorted.
@@ -91,7 +97,7 @@ impl Store {
     }
 
     pub fn save_engagement(&self, name: &str, config: &Config) -> Result<(), ConfigError> {
-        write_private(&self.engagement_path(name)?, &config.to_toml()?)
+        write_private(&self.engagement_path(name)?, config.to_toml()?.as_bytes())
     }
 
     pub fn delete_engagement(&self, name: &str) -> Result<(), ConfigError> {
@@ -135,6 +141,50 @@ impl Store {
         ids.into_iter()
             .find(|id| *id == slug)
             .ok_or_else(|| ConfigError::UnknownEngagement(query.to_string()))
+    }
+
+    /// Where the encrypted vault of a profile (an engagement id or
+    /// [`GLOBAL_PROFILE`]) lives.
+    pub fn vault_path(&self, profile: &str) -> Result<PathBuf, ConfigError> {
+        if profile != GLOBAL_PROFILE {
+            validate_name(profile)?;
+        }
+        Ok(self.dir.join(VAULTS_DIR).join(format!("{profile}.vault")))
+    }
+
+    /// The profile's vault, or an empty one if none was saved yet.
+    pub fn load_vault(&self, profile: &str, key: &VaultKey) -> Result<Vault, VaultError> {
+        let path = self
+            .vault_path(profile)
+            .map_err(|e| VaultError::Storage(e.to_string()))?;
+        match std::fs::read(&path) {
+            Ok(bytes) => Vault::open(&bytes, key, profile),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vault::new()),
+            Err(e) => Err(VaultError::Storage(format!("{}: {e}", path.display()))),
+        }
+    }
+
+    pub fn save_vault(
+        &self,
+        profile: &str,
+        vault: &Vault,
+        key: &VaultKey,
+    ) -> Result<(), VaultError> {
+        let path = self
+            .vault_path(profile)
+            .map_err(|e| VaultError::Storage(e.to_string()))?;
+        write_private(&path, &vault.seal(key, profile)?)
+            .map_err(|e| VaultError::Storage(e.to_string()))
+    }
+
+    pub fn delete_vault(&self, profile: &str) -> Result<(), ConfigError> {
+        let path = self.vault_path(profile)?;
+        match std::fs::remove_file(&path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                Err(ConfigError::Io { path, source: e })
+            }
+            _ => Ok(()),
+        }
     }
 
     /// The global config with the named engagement layered on top.
@@ -201,7 +251,7 @@ fn validate_name(name: &str) -> Result<(), ConfigError> {
 
 /// Writes through a temporary file and a rename, so a crash never leaves a
 /// half-written config behind.
-fn write_private(path: &Path, contents: &str) -> Result<(), ConfigError> {
+fn write_private(path: &Path, contents: &[u8]) -> Result<(), ConfigError> {
     let io = |source| ConfigError::Io {
         path: path.to_path_buf(),
         source,
@@ -215,7 +265,7 @@ fn write_private(path: &Path, contents: &str) -> Result<(), ConfigError> {
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
     let mut file = options.open(&tmp).map_err(io)?;
-    file.write_all(contents.as_bytes()).map_err(io)?;
+    file.write_all(contents).map_err(io)?;
     file.sync_all().map_err(io)?;
     std::fs::rename(&tmp, path).map_err(io)
 }
@@ -315,6 +365,24 @@ mod tests {
             let slug = slugify(name);
             assert!(validate_name(&slug).is_ok(), "{name:?} -> {slug:?}");
         }
+    }
+
+    #[test]
+    fn vaults_round_trip_per_profile() {
+        let store = temp_store("vault");
+        let key = crate::vault::generate_key();
+        assert!(store.load_vault(GLOBAL_PROFILE, &key).unwrap().is_empty());
+
+        let mut vault = Vault::new();
+        vault.record("104*", "1042");
+        store.save_vault("globex-q3", &vault, &key).unwrap();
+        assert_eq!(store.load_vault("globex-q3", &key).unwrap(), vault);
+        assert!(store.load_vault(GLOBAL_PROFILE, &key).unwrap().is_empty());
+
+        store.delete_vault("globex-q3").unwrap();
+        assert!(store.load_vault("globex-q3", &key).unwrap().is_empty());
+        assert!(store.vault_path("../x").is_err());
+        std::fs::remove_dir_all(store.dir()).unwrap();
     }
 
     #[test]

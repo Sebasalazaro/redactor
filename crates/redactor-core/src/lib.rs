@@ -20,10 +20,13 @@ mod dictionary;
 pub mod finding;
 pub mod format;
 mod jwt;
+#[cfg(feature = "keychain")]
+pub mod keychain;
 pub mod mask;
 mod redactor;
 pub mod store;
 mod tld;
+pub mod vault;
 
 pub use config::{Config, ConfigError, CustomTerm, MaskingConfig};
 pub use dictionary::{CLIENT_PLACEHOLDER, DEFAULT_TERM_PLACEHOLDER};
@@ -31,3 +34,4 @@ pub use finding::{Category, Finding};
 pub use format::InputFormat;
 pub use redactor::{Redaction, Redactor, Segment};
 pub use store::Store;
+pub use vault::{Restoration, RestorePart, Vault, VaultError};
