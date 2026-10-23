@@ -18,6 +18,7 @@ Thanks for helping make LLM-assisted pentesting safer.
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
+cargo deny check   # advisories, licenses, sources (cargo install cargo-deny)
 ```
 
 Changing redaction output? Regenerate the golden files and review the diff:
