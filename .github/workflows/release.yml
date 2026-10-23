@@ -3,6 +3,7 @@ name: Release
 # Pushing a tag like v0.1.0 builds everything and publishes a GitHub release.
 # Running it by hand (Actions > Release > Run workflow) only builds the
 # artifacts, so the pipeline can be tested without publishing anything.
+# See docs/releasing.md.
 on:
   push:
     tags: ["v*"]
@@ -14,10 +15,15 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+# Third-party actions are pinned to a commit; Dependabot keeps them current.
 jobs:
   cli:
     name: cli (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write # build provenance
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -27,64 +33,76 @@ jobs:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: ${{ matrix.target }}
       - run: cargo build --release --locked -p redactor-cli --target ${{ matrix.target }}
       - name: Package
         shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
-          name=redactor-${GITHUB_REF_NAME}-${{ matrix.target }}
+          name=redactor-${GITHUB_REF_NAME}-${TARGET}
           mkdir "$name"
           cp README.md LICENSE-MIT LICENSE-APACHE "$name"/
-          if [[ "${{ matrix.target }}" == *windows* ]]; then
-            cp target/${{ matrix.target }}/release/redactor.exe "$name"/
+          if [[ "$TARGET" == *windows* ]]; then
+            cp target/$TARGET/release/redactor.exe "$name"/
             7z a "$name.zip" "$name" > /dev/null
-            archive="$name.zip"
           else
-            cp target/${{ matrix.target }}/release/redactor "$name"/
+            cp target/$TARGET/release/redactor "$name"/
             tar czf "$name.tar.gz" "$name"
-            archive="$name.tar.gz"
           fi
-          if command -v sha256sum > /dev/null; then
-            sha256sum "$archive" > "$archive.sha256"
-          else
-            shasum -a 256 "$archive" > "$archive.sha256"
-          fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            redactor-*.tar.gz
+            redactor-*.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cli-${{ matrix.target }}
           path: |
-            redactor-*.tar.gz*
-            redactor-*.zip*
+            redactor-*.tar.gz
+            redactor-*.zip
 
-  desktop:
+  desktop-macos:
     name: desktop (macOS, Apple Silicon)
     runs-on: macos-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: 22
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
         working-directory: apps/desktop
-      - run: npx tauri build --bundles app,dmg
+      - run: npx tauri build --bundles app,dmg -- --locked
         working-directory: apps/desktop
       - name: Package
         run: |
           dmg=$(ls target/release/bundle/dmg/*.dmg)
-          out="redactor-desktop-${GITHUB_REF_NAME}-aarch64.dmg"
-          mv "$dmg" "$out"
-          shasum -a 256 "$out" > "$out.sha256"
-      - uses: actions/upload-artifact@v4
+          mv "$dmg" "redactor-desktop-${GITHUB_REF_NAME}-aarch64.dmg"
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: redactor-desktop-*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-macos
           path: redactor-desktop-*
@@ -92,16 +110,21 @@ jobs:
   publish:
     name: publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [cli, desktop]
+    needs: [cli, desktop-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist
           merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS
       - name: Release notes
         run: |
           version=${GITHUB_REF_NAME#v}
@@ -111,22 +134,12 @@ jobs:
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md > notes.md
-          cat >> notes.md <<'EOF'
-
-          ## Install
-
-          **CLI:** download the archive for your platform, unpack it and put
-          `redactor` on your `PATH`. Check it with the matching `.sha256` file.
-
-          **Desktop (macOS, Apple Silicon):** open the `.dmg` and drag
-          redactor to Applications. The app is not signed with an Apple
-          Developer ID yet, so the first time right-click it and choose
-          *Open*, or run `xattr -dr com.apple.quarantine /Applications/redactor.app`.
-
-          **AI deep scan (optional):** run `scripts/fetch-model.sh` from the
-          repository to install the local model.
-          EOF
-      - uses: softprops/action-gh-release@v2
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "CHANGELOG.md has no section for $version" >&2
+            exit 1
+          fi
+          cat .github/release-install.md >> notes.md
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           body_path: notes.md
           files: dist/*
