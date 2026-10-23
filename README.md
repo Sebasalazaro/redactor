@@ -108,13 +108,26 @@ Downloads `knowledgator/gliner-pii-edge-v1.0` (Apache-2.0) into
 The model is English-focused, and ONNX Runtime is linked into the app at
 build time.
 
-## Install (CLI)
+## Install
 
-Requires Rust 1.85+.
+Download the CLI or the desktop app from the
+[latest release](https://github.com/Sebasalazaro/redactor/releases/latest).
+Every file is listed in `SHA256SUMS` and has a build provenance attestation:
 
 ```sh
-git clone https://github.com/<you>/redactor && cd redactor
-cargo install --path crates/redactor-cli
+gh attestation verify <file> --repo Sebasalazaro/redactor
+```
+
+Or build the CLI from source (Rust 1.85+):
+
+```sh
+git clone https://github.com/Sebasalazaro/redactor && cd redactor
+cargo install --path crates/redactor-cli --locked
+```
+
+Then create the config:
+
+```sh
 redactor --init          # writes ~/.config/redactor/config.toml + an example engagement
 ```
 
