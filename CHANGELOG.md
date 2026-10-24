@@ -39,7 +39,13 @@ All notable changes to this project are documented here. The format follows
   and `--init`.
 - Golden, leak and determinism tests over fictional fixtures.
 
+### Security
+- Updated dependencies with known advisories: `time` (CVE-2026-25727),
+  `quick-xml` (via `plist`), `serde_with`, `webpki-root-certs`, and, for the
+  desktop build, `vite` and `source-map-js`. CI now runs `cargo-deny`.
+
 ### Changed
+- The minimum supported Rust version is now 1.88.
 - Peak memory of a redaction is ~3x lower (2.8x the input for a HAR export,
   was 10.3x). `Finding::original` was removed; use `Redaction::original`.
 - Desktop windows are created on demand and unloaded when closed: idle
