@@ -3396,7 +3396,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
- "toml 0.8.2",
+ "toml 1.1.6+spec-1.1.0",
 ]
 
 [[package]]
@@ -3414,7 +3414,7 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-global-shortcut",
  "thiserror 2.0.20",
- "toml 0.8.2",
+ "toml 1.1.6+spec-1.1.0",
 ]
 
 [[package]]
