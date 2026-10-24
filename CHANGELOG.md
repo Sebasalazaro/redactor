@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Windows: desktop app in the system tray with an NSIS installer (per user,
+  no admin rights), `--clipboard` in the CLI through the native clipboard,
+  and `scripts/fetch-model.ps1`. Clipboard writes are excluded from
+  clipboard history and Cloud Clipboard sync.
+- Releases ship a `SHA256SUMS` file and build provenance attestations.
 - Reversible mode: an encrypted vault per profile (AES-256-GCM, key in the
   OS keychain) remembers what was shared; the dashboard's *Restore* page, the
   menu bar and `redactor --restore` put real values back into LLM answers.

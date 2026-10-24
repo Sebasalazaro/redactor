@@ -1,20 +1,22 @@
 # redactor desktop
 
-Menu bar app for macOS (Windows and Linux should work but are untested). Press
-a hotkey anywhere, review the redacted clipboard in a popup and press Enter to
-copy it.
+Menu bar app for macOS and system tray app for Windows (Linux should work but
+is untested). Press a hotkey anywhere, review the redacted clipboard in a
+popup and press Enter to copy it.
 
 ![flow](../../docs/desktop-flow.svg)
 
 ## Features
 
-- **Global hotkey** (default `⌥⌘R`, configurable) redacts the clipboard.
+- **Global hotkey** (default `⌥⌘R` on macOS, `Ctrl+Alt+R` on Windows,
+  configurable) redacts the clipboard.
 - **Review popup:** colored diff by data type, click any value to reveal or
   re-mask it, select text and press `M` to mask something the engine missed,
   `Enter` copies and `Esc` cancels.
 - **Deep scan (AI):** in the popup, runs the local GLiNER model over the text
   and masks names, organizations, usernames, addresses and phone numbers the
-  patterns missed (dashed outline). Needs `scripts/fetch-model.sh` once.
+  patterns missed (dashed outline). Needs `scripts/fetch-model.sh` (or
+  `scripts\fetch-model.ps1` on Windows) once.
 - **Restore:** paste an LLM answer in the dashboard (or use *Restore
   clipboard* in the menu bar) and the redacted values you shared become the
   real ones again. Values that stayed masked in the popup, including manual
@@ -31,8 +33,8 @@ copy it.
     engagement.
   - *Global rules*, *Playground* and *Settings* (hotkey, review mode,
     privacy and memory options). Every change is saved automatically.
-- **Shares its config with the CLI** (`~/.config/redactor`), so both apply the
-  same rules.
+- **Shares its config with the CLI** (`~/.config/redactor`, or
+  `%USERPROFILE%\.config\redactor` on Windows), so both apply the same rules.
 
 ## Memory
 
@@ -69,6 +71,8 @@ last redaction only as redacted text, in memory, for 15 minutes by default.
   limited to Tauri IPC). There is no updater and no telemetry.
 - The pending redaction lives only in memory and is dropped when the popup
   closes.
+- On Windows, clipboard writes are excluded from clipboard history and Cloud
+  Clipboard (`src-tauri/src/clipboard.rs`).
 
 ## Develop
 
@@ -79,11 +83,16 @@ Requirements: Rust 1.88+, Node 24 LTS and the
 cd apps/desktop
 npm install
 npm run tauri dev                              # hot reload
-npm run tauri build -- --bundles app,dmg       # target/release/bundle/
+npm run tauri build -- --bundles app,dmg       # macOS, in target/release/bundle/
+npm run tauri build -- --bundles nsis          # Windows installer
 ```
 
 Use `REDACTOR_CONFIG_DIR=/tmp/redactor-test npm run tauri dev` to try it
-without touching your real config.
+without touching your real config (in PowerShell:
+`$env:REDACTOR_CONFIG_DIR="$env:TEMP\redactor-test"; npm run tauri dev`).
+
+On Windows the prerequisites are the MSVC build tools ("Desktop development
+with C++") and WebView2, which ships with Windows 10 and 11.
 
 The desktop crate is excluded from the workspace's default members because it
 needs platform webview libraries. Build it explicitly with
@@ -102,7 +111,8 @@ apps/desktop/
 └── src-tauri/src/
     ├── main.rs                   # builder, plugins, window lifecycle
     ├── flow.rs                   # clipboard → redact → review → clipboard
-    ├── tray.rs                   # menu bar icon and menu
+    ├── tray.rs                   # menu bar / tray icon and menu
+    ├── clipboard.rs              # clipboard writes (history-excluded on Windows)
     ├── commands.rs               # IPC surface
     ├── state.rs, settings.rs     # shared state, app.toml preferences
     └── dto.rs                    # payloads for the webviews
