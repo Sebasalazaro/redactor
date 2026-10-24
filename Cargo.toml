@@ -23,7 +23,7 @@ categories = ["command-line-utilities", "text-processing"]
 aes-gcm = "0.10"
 aho-corasick = "1"
 anyhow = "1"
-base64 = "0.22"
+base64 = "0.23"
 clap = { version = "4", features = ["derive"] }
 keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native", "linux-native"] }
 # ONNX Runtime is downloaded once at build time; no HTTP client is compiled in
