@@ -1,11 +1,13 @@
 //! Memory accounting for the overview, and returning freed memory to the OS.
 //!
-//! The web views do not run inside the app process: WebKit starts XPC
-//! services (WebContent, GPU, Networking) whose parent is launchd. macOS
+//! The web views do not run inside the app process. On macOS, WebKit starts
+//! XPC services (WebContent, GPU, Networking) whose parent is launchd; macOS
 //! records which process is "responsible" for each of them (Activity
 //! Monitor uses it to group processes). WebKit processes that share the
 //! app's responsible process and started after the app are counted as
-//! the app's web views.
+//! the app's web views. Elsewhere (WebView2 on Windows, WebKitGTK on Linux)
+//! the web view processes are descendants of the app, so every descendant
+//! except the AI worker is counted.
 
 use serde::Serialize;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
@@ -49,15 +51,12 @@ impl Meter {
             .process(self.pid)
             .map(|p| (p.memory(), p.start_time()))
             .unwrap_or_default();
-        let owner = responsible_pid(self.pid.as_u32());
-
         let webviews: Vec<u64> = self
             .system
             .processes()
             .values()
-            .filter(|p| p.name().to_string_lossy().starts_with("com.apple.WebKit"))
             .filter(|p| p.start_time() >= started)
-            .filter(|p| owner.is_some() && responsible_pid(p.pid().as_u32()) == owner)
+            .filter(|p| self.is_webview(p, worker))
             .map(|p| p.memory())
             .collect();
 
@@ -74,6 +73,37 @@ impl Meter {
             system_used: self.system.used_memory(),
         }
     }
+
+    #[cfg(target_os = "macos")]
+    fn is_webview(&self, p: &sysinfo::Process, _worker: Option<u32>) -> bool {
+        if !p.name().to_string_lossy().starts_with("com.apple.WebKit") {
+            return false;
+        }
+        let owner = responsible_pid(self.pid.as_u32());
+        owner.is_some() && responsible_pid(p.pid().as_u32()) == owner
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn is_webview(&self, p: &sysinfo::Process, worker: Option<u32>) -> bool {
+        let worker = worker.map(Pid::from_u32);
+        // Bounded walk up the parent chain; the worker's subtree is the AI's.
+        let mut parent = p.parent();
+        let mut pid = p.pid();
+        for _ in 0..16 {
+            if Some(pid) == worker {
+                return false;
+            }
+            match parent {
+                Some(ppid) if ppid == self.pid => return true,
+                Some(ppid) => {
+                    pid = ppid;
+                    parent = self.system.process(ppid).and_then(|p| p.parent());
+                }
+                None => return false,
+            }
+        }
+        false
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -84,11 +114,6 @@ fn responsible_pid(pid: u32) -> Option<i32> {
     }
     let owner = unsafe { responsibility_get_pid_responsible_for_pid(pid as i32) };
     (owner > 0).then_some(owner)
-}
-
-#[cfg(not(target_os = "macos"))]
-fn responsible_pid(_pid: u32) -> Option<i32> {
-    None
 }
 
 /// Asks the allocator to return free pages to the OS, so dropped data shows
@@ -102,7 +127,19 @@ pub fn release_free_pages() -> usize {
         // A null zone means every zone; a goal of 0 means as much as possible.
         unsafe { malloc_zone_pressure_relief(std::ptr::null_mut(), 0) }
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    {
+        unsafe extern "system" {
+            // kernel32; the Rust allocator on Windows uses the process heap.
+            fn GetProcessHeap() -> *mut std::ffi::c_void;
+            fn HeapCompact(heap: *mut std::ffi::c_void, flags: u32) -> usize;
+        }
+        // Coalesces free blocks and decommits what it can; the return value
+        // is the largest free block, not what was released.
+        unsafe { HeapCompact(GetProcessHeap(), 0) };
+        0
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
     0
 }
 
