@@ -3,8 +3,8 @@
 
 use redactor_core::Config;
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_clipboard_manager::ClipboardExt;
 
+use crate::clipboard;
 use crate::dto::{
     EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto, VaultDto,
 };
@@ -73,7 +73,7 @@ pub async fn vault_info(app: AppHandle) -> CmdResult<VaultDto> {
 /// Copies text chosen in the dashboard (a restored answer).
 #[tauri::command]
 pub fn copy_text(app: AppHandle, text: String) -> CmdResult<()> {
-    app.clipboard().write_text(text).map_err(err)
+    clipboard::write(&app, text)
 }
 
 #[tauri::command]
@@ -141,7 +141,7 @@ pub fn close_window(window: tauri::WebviewWindow) {
 #[tauri::command]
 pub fn copy_last(app: AppHandle, state: State<AppState>) -> CmdResult<()> {
     let last = state.last().ok_or("nothing to copy")?;
-    app.clipboard().write_text(last.output).map_err(err)
+    clipboard::write(&app, last.output)
 }
 
 #[tauri::command]
@@ -151,7 +151,7 @@ pub fn clear_last(state: State<AppState>) {
 
 #[tauri::command]
 pub fn clear_clipboard(app: AppHandle) -> CmdResult<()> {
-    app.clipboard().write_text(String::new()).map_err(err)
+    clipboard::write(&app, String::new())
 }
 
 /// Drops everything the session holds (last and pending redactions, the
