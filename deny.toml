@@ -4,8 +4,11 @@
 all-features = true
 
 [advisories]
-# Every RustSec advisory fails the build unless it is listed here with a reason.
+# Every vulnerability fails the build unless it is listed here with a reason.
 ignore = []
+# Unmaintained crates fail the build only when redactor depends on them
+# directly; deep in Tauri's or tokenizers' trees they are reported upstream.
+unmaintained = "workspace"
 
 [licenses]
 # Permissive licenses only, compatible with MIT OR Apache-2.0.
