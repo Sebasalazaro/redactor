@@ -20,7 +20,7 @@ keywords = ["security", "pentest", "redaction", "privacy", "llm"]
 categories = ["command-line-utilities", "text-processing"]
 
 [workspace.dependencies]
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 aho-corasick = "1"
 anyhow = "1"
 base64 = "0.22"
