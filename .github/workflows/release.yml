@@ -107,10 +107,47 @@ jobs:
           name: desktop-macos
           path: redactor-desktop-*
 
+  desktop-windows:
+    name: desktop (Windows, x64)
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: npx tauri build --bundles nsis -- --locked
+        working-directory: apps/desktop
+      - name: Package
+        shell: bash
+        run: |
+          exe=$(ls target/release/bundle/nsis/*-setup.exe)
+          mv "$exe" "redactor-desktop-${GITHUB_REF_NAME}-x64-setup.exe"
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: redactor-desktop-*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-windows
+          path: redactor-desktop-*
+
   publish:
     name: publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [cli, desktop-macos]
+    needs: [cli, desktop-macos, desktop-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
