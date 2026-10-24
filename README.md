@@ -118,7 +118,7 @@ Every file is listed in `SHA256SUMS` and has a build provenance attestation:
 gh attestation verify <file> --repo Sebasalazaro/redactor
 ```
 
-Or build the CLI from source (Rust 1.85+):
+Or build the CLI from source (Rust 1.88+):
 
 ```sh
 git clone https://github.com/Sebasalazaro/redactor && cd redactor

@@ -136,10 +136,10 @@ fn main() {
 
     app.run(|_, event| {
         // Keep running with every window closed; only "Quit" exits.
-        if let RunEvent::ExitRequested { api, code, .. } = event {
-            if code.is_none() {
-                api.prevent_exit();
-            }
+        if let RunEvent::ExitRequested { api, code, .. } = event
+            && code.is_none()
+        {
+            api.prevent_exit();
         }
     });
 }
