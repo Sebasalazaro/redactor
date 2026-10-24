@@ -161,11 +161,11 @@ pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
     state.clear_last(Forgotten::Freed);
     state.ai.unload();
     state.vaults.unload();
-    if let Some(review) = app.get_webview_window(REVIEW) {
-        if !review.is_visible().unwrap_or(true) {
-            state.set_pending(None);
-            let _ = review.destroy();
-        }
+    if let Some(review) = app.get_webview_window(REVIEW)
+        && !review.is_visible().unwrap_or(true)
+    {
+        state.set_pending(None);
+        let _ = review.destroy();
     }
     let released_bytes = memory::release_free_pages();
     FreedDto {

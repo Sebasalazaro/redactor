@@ -72,7 +72,7 @@ last redaction only as redacted text, in memory, for 15 minutes by default.
 
 ## Develop
 
-Requirements: Rust 1.85+, Node 20+ and the
+Requirements: Rust 1.88+, Node 24 LTS and the
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```sh
