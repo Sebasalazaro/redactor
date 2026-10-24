@@ -14,8 +14,12 @@ use redactor_ner::worker::Client;
 use redactor_ner::{DEFAULT_LABELS, DEFAULT_THRESHOLD};
 use serde::Serialize;
 
-/// Folder, under the config dir, that `scripts/fetch-model.sh` fills.
+/// Folder, under the config dir, that `scripts/fetch-model.{sh,ps1}` fills.
 const MODEL: &str = "models/gliner-pii-edge-v1.0";
+#[cfg(windows)]
+const FETCH_MODEL: &str = r"scripts\fetch-model.ps1";
+#[cfg(not(windows))]
+const FETCH_MODEL: &str = "scripts/fetch-model.sh";
 const IDLE: Duration = Duration::from_secs(120);
 
 /// An entity found by the model, positioned in UTF-16 code units so the
@@ -63,7 +67,7 @@ impl Ai {
     /// Finds names, organizations, usernames... that patterns missed.
     pub fn scan(&self, text: &str, redactor: &Redactor) -> Result<Vec<AiEntity>, String> {
         if !self.installed() {
-            return Err("the AI model is not installed (run scripts/fetch-model.sh)".into());
+            return Err(format!("the AI model is not installed (run {FETCH_MODEL})"));
         }
         let mut slot = self.lock();
         if slot.is_none() {

@@ -18,6 +18,10 @@ export function ago(secs: number): string {
 }
 
 const isMac = navigator.platform.toLowerCase().includes("mac");
+const isWindows = navigator.platform.toLowerCase().startsWith("win");
+
+/** The script that installs the AI model on this platform. */
+export const FETCH_MODEL = isWindows ? "scripts\\fetch-model.ps1" : "scripts/fetch-model.sh";
 const MAC_ORDER: [string, string][] = [
   ["Control", "⌃"],
   ["Alt", "⌥"],

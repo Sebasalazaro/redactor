@@ -2,6 +2,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import { api, CATEGORY_LABELS, compose, type Review, type Segment } from "../lib/api";
+  import { FETCH_MODEL } from "../lib/format";
 
   /** A segment as shown: can be revealed, or added by hand or by the AI. */
   type Item = Segment & { revealed?: boolean; manual?: boolean; ai?: string };
@@ -222,7 +223,7 @@
           disabled={!review.ai_installed || scanning}
           title={review.ai_installed
             ? "Find names, organizations and other data with the local AI model"
-            : "Install the model first: scripts/fetch-model.sh"}
+            : `Install the model first: ${FETCH_MODEL}`}
         >
           {scanning ? "Scanning…" : "Deep scan (AI)"}
         </button>
