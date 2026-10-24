@@ -12,6 +12,7 @@ fn model_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
         .or_else(|| {
             std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"))
                 .map(|h| PathBuf::from(h).join(".config/redactor/models/gliner-pii-edge-v1.0"))
         })?;
     dir.join("model.onnx").exists().then_some(dir)

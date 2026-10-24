@@ -21,6 +21,7 @@ external IPs.
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
   <img alt="ONNX Runtime" src="https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white">
   <img alt="macOS" src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white">
   <img alt="100% offline" src="https://img.shields.io/badge/100%25-Offline-15803D?style=for-the-badge">
   <img alt="License: MIT or Apache-2.0" src="https://img.shields.io/badge/License-MIT_%2F_Apache--2.0-green?style=for-the-badge">
 </p>
@@ -86,8 +87,9 @@ token belongs to the account being modified.
 
 ## Desktop app
 
-A menu bar app for everyday use: copy traffic anywhere, press **⌥⌘R**, check
-the colored diff, press **Enter** and paste. Click any value to reveal or
+A menu bar (macOS) and system tray (Windows) app for everyday use: copy
+traffic anywhere, press **⌥⌘R** (**Ctrl+Alt+R** on Windows), check the
+colored diff, press **Enter** and paste. Click any value to reveal or
 re-mask it, or select text and press **M** to mask something the engine missed.
 Engagements switch from the menu bar, and a dashboard shows the last
 redaction, live memory use and the effective rules of each engagement, over
@@ -102,6 +104,8 @@ See [apps/desktop](apps/desktop) to build it.
 ```sh
 scripts/fetch-model.sh   # 49 MB, pinned revision, SHA-256 verified
 ```
+
+On Windows: `powershell -ExecutionPolicy Bypass -File scripts\fetch-model.ps1`.
 
 Downloads `knowledgator/gliner-pii-edge-v1.0` (Apache-2.0) into
 `~/.config/redactor/models/`. The review popup then offers **Deep scan (AI)**.
@@ -143,8 +147,12 @@ redactor --restore -p -e globex-q3          # put real values back into an LLM a
 ```
 
 `-e` takes either a path or the name of a file in
-`~/.config/redactor/engagements/`. Set `REDACTOR_CONFIG_DIR` to use another
-directory.
+`~/.config/redactor/engagements/` (`%USERPROFILE%\.config\redactor` on
+Windows). Set `REDACTOR_CONFIG_DIR` to use another directory.
+
+`--clipboard` uses the native clipboard on macOS and Windows, and `xclip` on
+Linux. On Windows, prefer it over piping through PowerShell, which can
+re-encode non-ASCII text.
 
 ## Configuration
 
@@ -201,6 +209,10 @@ non-overlapping set, so adding a detector never corrupts the output. More in
 - Everything runs locally. The core crate has no networking dependencies, and
   the desktop app has a strict CSP and exposes no plugins to its webviews.
 - Findings serialized with `--json` never include original values.
+- On Windows, everything redactor puts on the clipboard (redacted text and
+  restored real values) is excluded from clipboard history (Win+V) and Cloud
+  Clipboard sync. What you copy yourself before redacting is not: turn
+  clipboard history off if that matters for your engagement.
 - The reversible-mode vault is the only place real values are stored. It is
   encrypted with AES-256-GCM (the profile id bound as associated data), its
   key never leaves the OS keychain, and it can be turned off or wiped per

@@ -5,9 +5,9 @@
 //! destroys it, which ends its WebKit process and frees its memory.
 
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
+use crate::clipboard;
 use crate::state::{AppState, LastRedaction};
 use crate::vault::Pair;
 
@@ -18,7 +18,7 @@ pub const DASHBOARD: &str = "dashboard";
 /// otherwise it replaces the clipboard right away.
 pub fn redact_clipboard(app: &AppHandle) {
     let state = app.state::<AppState>();
-    let text = app.clipboard().read_text().unwrap_or_default();
+    let text = clipboard::read(app);
     let redaction = state.redactor().redact(&text);
     drop(text);
 
@@ -37,7 +37,7 @@ pub fn redact_clipboard(app: &AppHandle) {
                 original: redaction.original(f).to_string(),
             })
             .collect();
-        if app.clipboard().write_text(redaction.output).is_ok() {
+        if clipboard::write(app, redaction.output).is_ok() {
             state.record(last);
             remember(app, pairs);
             let _ = app.emit_to(DASHBOARD, "overview-changed", ());
@@ -48,9 +48,7 @@ pub fn redact_clipboard(app: &AppHandle) {
 /// Copies the reviewed text and closes the popup. `pairs` are the values
 /// that stayed masked (revealed ones are not included), for the vault.
 pub fn finish_review(app: &AppHandle, text: String, pairs: Vec<Pair>) -> Result<(), String> {
-    app.clipboard()
-        .write_text(text.clone())
-        .map_err(|e| e.to_string())?;
+    clipboard::write(app, text.clone())?;
     app.state::<AppState>().complete_review(&text);
     remember(app, pairs);
     close_review(app);
@@ -77,13 +75,11 @@ fn remember(app: &AppHandle, pairs: Vec<Pair>) {
 /// Puts the real values back into the LLM answer on the clipboard.
 pub fn restore_clipboard(app: &AppHandle) -> Result<(usize, usize), String> {
     let state = app.state::<AppState>();
-    let text = app.clipboard().read_text().unwrap_or_default();
+    let text = clipboard::read(app);
     let restoration = state
         .vaults
         .restore(&state.store, &state.profile(), &text)?;
-    app.clipboard()
-        .write_text(restoration.text())
-        .map_err(|e| e.to_string())?;
+    clipboard::write(app, restoration.text())?;
     Ok((restoration.restored(), restoration.ambiguous()))
 }
 
@@ -91,7 +87,7 @@ pub fn restore_clipboard(app: &AppHandle) -> Result<(usize, usize), String> {
 /// unredacted text unless `clear_clipboard_on_cancel` is on.
 pub fn cancel_review(app: &AppHandle) {
     if app.state::<AppState>().settings().clear_clipboard_on_cancel {
-        let _ = app.clipboard().write_text(String::new());
+        let _ = clipboard::write(app, String::new());
     }
     close_review(app);
 }
@@ -235,5 +231,12 @@ mod tests {
     fn pretty_prints_hotkeys() {
         assert_eq!(pretty_hotkey("CommandOrControl+Alt+R"), "⌥⌘R");
         assert_eq!(pretty_hotkey("Shift+Control+KeyK"), "⌃⇧K");
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn pretty_prints_hotkeys() {
+        assert_eq!(pretty_hotkey("CommandOrControl+Alt+R"), "Ctrl+Alt+R");
+        assert_eq!(pretty_hotkey("CmdOrCtrl+Shift+K"), "Ctrl+Shift+K");
     }
 }

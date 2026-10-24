@@ -6,24 +6,23 @@ use std::process::Command;
 
 use redactor_ner::worker::Client;
 use redactor_ner::{DEFAULT_LABELS, DEFAULT_THRESHOLD};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 fn model_dir() -> Option<PathBuf> {
-    let home = PathBuf::from(std::env::var_os("HOME")?);
-    let dir = home.join(".config/redactor/models/gliner-pii-edge-v1.0");
+    let dir = redactor_core::store::default_dir()?.join("models/gliner-pii-edge-v1.0");
     dir.join("model.onnx").exists().then_some(dir)
 }
 
+/// Resident memory of a process, or `None` once it has exited.
 fn rss_mb(pid: u32) -> Option<u64> {
-    let out = Command::new("ps")
-        .args(["-o", "rss=", "-p", &pid.to_string()])
-        .output()
-        .ok()?;
-    String::from_utf8(out.stdout)
-        .ok()?
-        .trim()
-        .parse::<u64>()
-        .ok()
-        .map(|kb| kb / 1024)
+    let pid = Pid::from_u32(pid);
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing().with_memory(),
+    );
+    system.process(pid).map(|p| p.memory() / (1024 * 1024))
 }
 
 #[test]

@@ -3379,6 +3379,7 @@ name = "redactor-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "clap",
  "redactor-core",
  "serde_json",
@@ -3403,6 +3404,7 @@ dependencies = [
 name = "redactor-desktop"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "keyring",
  "redactor-core",
  "redactor-ner",
