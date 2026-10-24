@@ -11,11 +11,18 @@ use crate::state::AppState;
 const TRAY_ID: &str = "main";
 const ENGAGEMENT_PREFIX: &str = "engagement:";
 
+/// macOS tints a monochrome template icon to match the menu bar. Elsewhere
+/// the black template would vanish on a dark taskbar, so the app icon is used.
+#[cfg(target_os = "macos")]
+const ICON: &[u8] = include_bytes!("../icons/tray.png");
+#[cfg(not(target_os = "macos"))]
+const ICON: &[u8] = include_bytes!("../icons/32x32.png");
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+    let icon = tauri::image::Image::from_bytes(ICON)?;
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
-        .icon_as_template(true)
+        .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("redactor")
         .menu(&menu(app)?)
         .show_menu_on_left_click(true)
