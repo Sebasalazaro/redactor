@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AppSettings, Status } from "../../lib/api";
+  import { FETCH_MODEL } from "../../lib/format";
   import HotkeyField from "../components/HotkeyField.svelte";
 
   let { settings = $bindable(), status }: { settings: AppSettings; status: Status | null } = $props();
@@ -88,7 +89,7 @@
     <div>
       <strong>Local model</strong>
       <p>
-        GLiNER PII (knowledgator/gliner-pii-edge-v1.0), runs on this Mac only when you press
+        GLiNER PII (knowledgator/gliner-pii-edge-v1.0), runs on this computer only when you press
         <em>Deep scan</em> in the review popup, in a separate process that ends after two idle
         minutes (~190 MB while it runs). English-focused.
       </p>
@@ -96,7 +97,7 @@
     {#if status?.ai_installed}
       <span class="installed">Installed</span>
     {:else}
-      <code class="path">scripts/fetch-model.sh</code>
+      <code class="path">{FETCH_MODEL}</code>
     {/if}
   </div>
 </div>
