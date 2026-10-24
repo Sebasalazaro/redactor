@@ -2,7 +2,7 @@
 //!
 //! ```sh
 //! pbpaste | redactor | pbcopy          # pipe
-//! redactor --clipboard -e globex-q3    # rewrite the clipboard in place (macOS)
+//! redactor --clipboard -e globex-q3    # rewrite the clipboard in place
 //! redactor request.txt --report        # file, with a summary on stderr
 //! redactor --remember -p               # redact the clipboard, remember values
 //! redactor --restore -p                # put real values back in an LLM answer
@@ -37,7 +37,7 @@ struct Cli {
     #[arg(short, long, value_name = "NAME|PATH")]
     engagement: Option<String>,
 
-    /// Read from and write back to the system clipboard (macOS).
+    /// Read from and write back to the system clipboard (xclip on Linux).
     #[arg(short = 'p', long, conflicts_with = "input")]
     clipboard: bool,
 

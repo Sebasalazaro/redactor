@@ -23,6 +23,8 @@ categories = ["command-line-utilities", "text-processing"]
 aes-gcm = "0.10"
 aho-corasick = "1"
 anyhow = "1"
+# Windows only: native clipboard, with history and cloud sync exclusion.
+arboard = { version = "3.4", default-features = false }
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native", "linux-native"] }
