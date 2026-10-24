@@ -12,5 +12,11 @@ Applications. The app is not signed with an Apple Developer ID yet, so the
 first time right-click it and choose *Open*, or run
 `xattr -dr com.apple.quarantine /Applications/redactor.app`.
 
-**AI deep scan (optional):** run `scripts/fetch-model.sh` from the
-repository to install the local model.
+**Desktop (Windows, x64):** run the `-setup.exe`. It installs for the
+current user only, without admin rights. It is not code-signed yet, so
+SmartScreen may warn the first time: choose *More info* → *Run anyway*.
+
+**AI deep scan (optional):** from the repository, run
+`scripts/fetch-model.sh` (macOS, Linux) or
+`powershell -ExecutionPolicy Bypass -File scripts\fetch-model.ps1` (Windows)
+to install the local model.
