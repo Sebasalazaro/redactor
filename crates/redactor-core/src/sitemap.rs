@@ -23,6 +23,7 @@ use base64::engine::general_purpose::STANDARD;
 use quick_xml::Reader;
 use quick_xml::events::Event;
 use regex::Regex;
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::Redactor;
@@ -111,7 +112,8 @@ pub struct SiteMap {
     pub static_items: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Class {
     /// Both roles got a 2xx with the same content.
     SameContent,
@@ -152,11 +154,56 @@ pub struct Row<'a> {
 }
 
 /// A redacted response body requested with `--include-bodies`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Sample {
     pub role: String,
     pub endpoint: String,
     pub text: String,
+}
+
+/// A finished comparison. Every string in it is already redacted.
+#[derive(Debug, Clone, Serialize)]
+pub struct Report {
+    pub high_label: String,
+    pub low_label: String,
+    pub left_out: LeftOut,
+    pub sections: Vec<ReportSection>,
+    pub samples: Vec<Sample>,
+}
+
+/// Items of each export that were not compared.
+#[derive(Debug, Clone, Serialize)]
+pub struct LeftOut {
+    pub high_unrequested: usize,
+    pub high_static: usize,
+    pub low_unrequested: usize,
+    pub low_static: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportSection {
+    pub class: Class,
+    pub title: String,
+    pub hint: String,
+    pub prefixes: Vec<(String, usize)>,
+    pub rows: Vec<ReportRow>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportRow {
+    pub origin: String,
+    pub endpoint: String,
+    pub high: Option<Side>,
+    pub low: Option<Side>,
+    pub notes: String,
+}
+
+/// What one role got from an endpoint.
+#[derive(Debug, Clone, Serialize)]
+pub struct Side {
+    pub statuses: String,
+    pub size: String,
+    pub requests: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -284,53 +331,103 @@ pub fn report(
     options: &ReportOptions,
     samples: &[Sample],
 ) -> String {
+    build_report(high, low, redactor, options, samples).to_markdown(options.max_rows)
+}
+
+/// Classifies both site maps into a report. Everything in it is redacted.
+pub fn build_report(
+    high: &SiteMap,
+    low: &SiteMap,
+    redactor: &Redactor,
+    options: &ReportOptions,
+    samples: &[Sample],
+) -> Report {
     let mut rows = compare(high, low);
     rows.sort_by(|a, b| (a.class, a.endpoint).cmp(&(b.class, b.endpoint)));
     let names = Names::new(redactor);
     let h = names.piece(&options.high_label);
     let l = names.piece(&options.low_label);
 
-    let mut out = format!("# Site map comparison: {h} vs {l}\n\n");
-    out.push_str(
-        "Redacted offline by redactor from two Burp exports. It holds methods, templated \
-         paths, parameter names, statuses, body sizes and JSON field names, not values. \
-         `{id}`, `{uuid}`, `{hex}`, `{token}`, `{email}`, `{value}` and `{key}` stand for \
-         values that were removed.\n\n\
-         This only compares what each role already requested. Nothing was replayed, so an \
-         endpoint seen by one role says nothing about whether the other can reach it.\n\n",
-    );
+    let sections = CLASSES
+        .into_iter()
+        .map(|class| {
+            let section: Vec<&Row> = rows.iter().filter(|r| r.class == class).collect();
+            ReportSection {
+                class,
+                title: title(class, &h, &l),
+                hint: hint(class, &h, &l),
+                prefixes: prefixes(&section, &names),
+                rows: section.iter().map(|row| report_row(row, &names)).collect(),
+            }
+        })
+        .collect();
 
-    let _ = writeln!(out, "| Result | Endpoints |\n|---|---:|");
-    for class in CLASSES {
-        let count = rows.iter().filter(|r| r.class == class).count();
-        let _ = writeln!(out, "| {} | {count} |", title(class, &h, &l));
+    Report {
+        left_out: LeftOut {
+            high_unrequested: high.unrequested,
+            high_static: high.static_items,
+            low_unrequested: low.unrequested,
+            low_static: low.static_items,
+        },
+        sections,
+        samples: samples
+            .iter()
+            .map(|sample| Sample {
+                role: names.piece(&sample.role),
+                ..sample.clone()
+            })
+            .collect(),
+        high_label: h,
+        low_label: l,
     }
-    let _ = writeln!(
-        out,
-        "\nLeft out: {} never requested and {} static files from {h}; {} and {} from {l}.\n",
-        high.unrequested, high.static_items, low.unrequested, low.static_items
-    );
+}
 
-    for class in CLASSES {
-        let section: Vec<&Row> = rows.iter().filter(|r| r.class == class).collect();
-        if !section.is_empty() {
-            write_section(&mut out, class, &section, &names, options, &h, &l);
+impl Report {
+    /// The report as Markdown, listing up to `max_rows` rows per section.
+    pub fn to_markdown(&self, max_rows: usize) -> String {
+        let (h, l) = (&self.high_label, &self.low_label);
+        let mut out = format!("# Site map comparison: {h} vs {l}\n\n");
+        out.push_str(
+            "Redacted offline by redactor from two Burp exports. It holds methods, templated \
+             paths, parameter names, statuses, body sizes and JSON field names, not values. \
+             `{id}`, `{uuid}`, `{hex}`, `{token}`, `{email}`, `{value}` and `{key}` stand for \
+             values that were removed.\n\n\
+             This only compares what each role already requested. Nothing was replayed, so an \
+             endpoint seen by one role says nothing about whether the other can reach it.\n\n",
+        );
+
+        let _ = writeln!(out, "| Result | Endpoints |\n|---|---:|");
+        for section in &self.sections {
+            let _ = writeln!(out, "| {} | {} |", section.title, section.rows.len());
         }
-    }
+        let left_out = &self.left_out;
+        let _ = writeln!(
+            out,
+            "\nLeft out: {} never requested and {} static files from {h}; {} and {} from {l}.\n",
+            left_out.high_unrequested,
+            left_out.high_static,
+            left_out.low_unrequested,
+            left_out.low_static
+        );
 
-    if !samples.is_empty() {
-        out.push_str("## Selected responses\n\n");
-        for sample in samples {
-            let _ = writeln!(
-                out,
-                "**{}** `{}`\n\n~~~~\n{}\n~~~~\n",
-                names.piece(&sample.role),
-                sample.endpoint,
-                sample.text.replace("~~~~", "~ ~ ~ ~")
-            );
+        for section in self.sections.iter().filter(|s| !s.rows.is_empty()) {
+            write_section(&mut out, section, max_rows, h, l);
         }
+
+        if !self.samples.is_empty() {
+            out.push_str("## Selected responses\n\n");
+            for sample in &self.samples {
+                let _ = writeln!(
+                    out,
+                    "**{}** `{}`\n\n~~~~\n{}\n~~~~\n",
+                    sample.role,
+                    sample.endpoint,
+                    sample.text.replace("~~~~", "~ ~ ~ ~")
+                );
+            }
+        }
+        out
     }
-    out
 }
 
 fn title(class: Class, h: &str, l: &str) -> String {
@@ -352,53 +449,71 @@ fn hint(class: Class, h: &str, l: &str) -> String {
              should reach these at all."
         ),
         Class::DifferentContent => format!(
-            "Check what each role sees. `+` fields appear only for {h}, `-` fields only for {l}."
+            "Check what each role sees. + fields appear only for {h}, - fields only for {l}."
         ),
         Class::Inverted => format!("Unusual: {l} gets more than {h}."),
         Class::Enforced => {
             format!("The control looks enforced. Check that {l}'s responses are real denials.")
         }
-        Class::HighOnly => format!("**Not a finding yet:** replay these with {l}'s session."),
+        Class::HighOnly => format!("Not a finding yet: replay these with {l}'s session."),
         Class::LowOnly => format!("Functions {h} did not visit."),
         Class::NoAccess => "Little signal.".to_string(),
     }
 }
 
-fn write_section(
-    out: &mut String,
-    class: Class,
-    rows: &[&Row],
-    names: &Names,
-    options: &ReportOptions,
-    h: &str,
-    l: &str,
-) {
+/// The largest path prefixes, once a section is too long to read row by row.
+fn prefixes(rows: &[&Row], names: &Names) -> Vec<(String, usize)> {
+    if rows.len() <= 20 {
+        return Vec::new();
+    }
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for row in rows {
+        *counts.entry(names.prefix(&row.endpoint.path)).or_default() += 1;
+    }
+    let mut counts: Vec<_> = counts.into_iter().collect();
+    counts.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    counts.truncate(10);
+    counts
+}
+
+fn report_row(row: &Row, names: &Names) -> ReportRow {
+    let side = |stats: &Stats| Side {
+        statuses: statuses(stats),
+        size: sizes(stats),
+        requests: stats.requests,
+    };
+    ReportRow {
+        origin: names.piece(&row.endpoint.origin),
+        endpoint: names.endpoint(row.endpoint),
+        high: row.high.map(side),
+        low: row.low.map(side),
+        notes: match (row.high, row.low) {
+            (Some(high), Some(low)) => notes(row, high, low, names),
+            _ => String::new(),
+        },
+    }
+}
+
+fn write_section(out: &mut String, section: &ReportSection, max_rows: usize, h: &str, l: &str) {
+    let rows = &section.rows;
     let _ = writeln!(
         out,
         "## {} ({})\n\n{}\n",
-        title(class, h, l),
+        section.title,
         rows.len(),
-        hint(class, h, l)
+        section.hint
     );
 
-    if rows.len() > 20 {
-        let mut prefixes: BTreeMap<String, usize> = BTreeMap::new();
-        for row in rows {
-            *prefixes
-                .entry(names.prefix(&row.endpoint.path))
-                .or_default() += 1;
-        }
-        let mut prefixes: Vec<_> = prefixes.into_iter().collect();
-        prefixes.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        let listed: Vec<String> = prefixes
+    if !section.prefixes.is_empty() {
+        let listed: Vec<String> = section
+            .prefixes
             .iter()
-            .take(10)
             .map(|(prefix, count)| format!("`{prefix}` ({count})"))
             .collect();
         let _ = writeln!(out, "By prefix: {}\n", listed.join(", "));
     }
 
-    let paired = !matches!(class, Class::HighOnly | Class::LowOnly);
+    let paired = !matches!(section.class, Class::HighOnly | Class::LowOnly);
     if paired {
         let _ = writeln!(
             out,
@@ -412,43 +527,36 @@ fn write_section(
     }
 
     let mut origin = None;
-    for row in rows.iter().take(options.max_rows) {
-        let endpoint = names.endpoint(row.endpoint);
-        let label = if origin == Some(&row.endpoint.origin) {
-            format!("`{endpoint}`")
+    for row in rows.iter().take(max_rows) {
+        let label = if origin == Some(&row.origin) {
+            format!("`{}`", row.endpoint)
         } else {
-            origin = Some(&row.endpoint.origin);
-            format!("`{endpoint}` on {}", names.piece(&row.endpoint.origin))
+            origin = Some(&row.origin);
+            format!("`{}` on {}", row.endpoint, row.origin)
         };
-        match (row.high, row.low) {
+        match (&row.high, &row.low) {
             (Some(high), Some(low)) => {
                 let _ = writeln!(
                     out,
                     "| {label} | {} | {} | {} | {} | {} |",
-                    statuses(high),
-                    statuses(low),
-                    sizes(high),
-                    sizes(low),
-                    notes(row, high, low, names)
+                    high.statuses, low.statuses, high.size, low.size, row.notes
                 );
             }
-            (Some(stats), None) | (None, Some(stats)) => {
+            (Some(side), None) | (None, Some(side)) => {
                 let _ = writeln!(
                     out,
                     "| {label} | {} | {} | {} |",
-                    statuses(stats),
-                    sizes(stats),
-                    stats.requests
+                    side.statuses, side.size, side.requests
                 );
             }
             (None, None) => {}
         }
     }
-    if rows.len() > options.max_rows {
+    if rows.len() > max_rows {
         let _ = writeln!(
             out,
             "\n{} more not listed (raise `--max-rows` to see them).",
-            rows.len() - options.max_rows
+            rows.len() - max_rows
         );
     }
     out.push('\n');
