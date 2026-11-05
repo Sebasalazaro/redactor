@@ -94,8 +94,8 @@ struct CompareArgs {
     engagement: Option<String>,
 
     /// Names of the two roles in the report.
-    #[arg(long, value_names = ["HIGH", "LOW"], num_args = 2, value_delimiter = ',', default_values = ["admin", "user"])]
-    labels: Vec<String>,
+    #[arg(long, value_name = "HIGH,LOW", default_value = "admin,user")]
+    labels: String,
 
     /// Write the report to this file instead of stdout.
     #[arg(long, value_name = "PATH")]
@@ -231,9 +231,13 @@ fn compare(args: &CompareArgs, store: &Store) -> Result<()> {
     let high = read_site_map(&args.high)?;
     let low = read_site_map(&args.low)?;
 
+    let (high_label, low_label) = args
+        .labels
+        .split_once(',')
+        .context("--labels takes two names separated by a comma")?;
     let options = ReportOptions {
-        high_label: args.labels[0].clone(),
-        low_label: args.labels[1].clone(),
+        high_label: high_label.to_string(),
+        low_label: low_label.to_string(),
         max_rows: args.max_rows,
     };
     let mut samples = Vec::new();
