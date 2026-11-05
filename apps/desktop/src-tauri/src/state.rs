@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use redactor_core::{Category, InputFormat, Redaction, Redactor, Store};
 
 use crate::ai::Ai;
+use crate::compare::Comparison;
 use crate::memory::{MemoryDto, Meter};
 use crate::settings::AppSettings;
 use crate::vault::{self, Vaults};
@@ -65,6 +66,7 @@ pub struct AppState {
     pub store: Store,
     pub ai: Ai,
     pub vaults: Vaults,
+    pub comparison: Mutex<Comparison>,
     settings: Mutex<AppSettings>,
     redactor: Mutex<Arc<Redactor>>,
     /// Redaction waiting in the review popup.
@@ -96,6 +98,7 @@ impl AppState {
         let state = Self {
             ai: Ai::new(&store),
             vaults: Vaults::default(),
+            comparison: Mutex::default(),
             store,
             settings: Mutex::new(settings),
             redactor: Mutex::new(Arc::new(Redactor::new(&Default::default()))),
@@ -147,6 +150,10 @@ impl AppState {
     /// Vault profile of the active engagement.
     pub fn profile(&self) -> String {
         vault::profile_of(self.settings().active_engagement.as_deref())
+    }
+
+    pub fn comparison(&self) -> MutexGuard<'_, Comparison> {
+        lock(&self.comparison)
     }
 
     pub fn error(&self) -> Option<String> {
