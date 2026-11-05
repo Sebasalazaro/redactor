@@ -200,6 +200,9 @@ sizes and JSON field names, but no values. Keep in mind:
   engine does not recognize stays as it is.
 - Only JSON bodies are compared field by field, and only Burp XML is read.
 
+The desktop app's *Compare* page runs the same comparison, with tables you can
+filter and buttons to copy or save the report.
+
 ## Configuration
 
 ```toml

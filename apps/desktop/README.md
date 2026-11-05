@@ -21,6 +21,10 @@ popup and press Enter to copy it.
   clipboard* in the menu bar) and the redacted values you shared become the
   real ones again. Values that stayed masked in the popup, including manual
   and AI masks, go to the active profile's encrypted vault.
+- **Compare:** two Burp site map exports of different roles become one
+  redacted report, grouped for access control review. See the
+  [main README](../../README.md#compare-two-roles-in-burp). Files are chosen in
+  a native dialog and read in Rust, so the webview only sees file names.
 - **Menu bar:** redact now, restore, open the dashboard, switch the active
   engagement.
 - **Dashboard:**
