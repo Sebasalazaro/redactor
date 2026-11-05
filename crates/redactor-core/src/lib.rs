@@ -24,6 +24,7 @@ mod jwt;
 pub mod keychain;
 pub mod mask;
 mod redactor;
+pub mod sitemap;
 pub mod store;
 mod tld;
 pub mod vault;

@@ -3393,6 +3393,7 @@ dependencies = [
  "aho-corasick",
  "base64 0.22.1",
  "keyring",
+ "quick-xml 0.42.0",
  "regex",
  "serde",
  "serde_json",
