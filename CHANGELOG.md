@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
 ### Fixed
 - Windows: the app froze, hotkey included, when the *Redact clipboard* button
   or the tray menu had to open a window. Windows are now created off the main
