@@ -1,25 +1,21 @@
+# Security updates only (enabled in the repository settings). A limit of 0
+# turns off routine version bumps without affecting security updates.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    groups:
-      actions:
-        patterns: ["*"]
+      interval: monthly
+    open-pull-requests-limit: 0
 
   - package-ecosystem: cargo
     directory: /
     schedule:
-      interval: weekly
-    groups:
-      cargo-minor:
-        update-types: [minor, patch]
+      interval: monthly
+    open-pull-requests-limit: 0
 
   - package-ecosystem: npm
     directory: /apps/desktop
     schedule:
-      interval: weekly
-    groups:
-      npm-minor:
-        update-types: [minor, patch]
+      interval: monthly
+    open-pull-requests-limit: 0
