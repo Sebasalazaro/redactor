@@ -6,16 +6,19 @@
 //! redactor request.txt --report        # file, with a summary on stderr
 //! redactor --remember -p               # redact the clipboard, remember values
 //! redactor --restore -p                # put real values back in an LLM answer
+//! redactor compare admin.xml user.xml  # compare two Burp site map exports
 //! ```
 
 mod clipboard;
 
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
+use std::fs::File;
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
+use redactor_core::sitemap::{self, ReportOptions};
 use redactor_core::store::{GLOBAL_PROFILE, slugify};
 use redactor_core::vault::VaultKey;
 use redactor_core::{Category, Config, Redaction, Redactor, RestorePart, Store};
@@ -24,8 +27,11 @@ const EXAMPLE_CONFIG: &str = include_str!("../../../examples/config.toml");
 const EXAMPLE_ENGAGEMENT: &str = include_str!("../../../examples/engagement.toml");
 
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, args_conflicts_with_subcommands = true)]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+
     /// File to redact. Reads stdin when omitted.
     input: Option<PathBuf>,
 
@@ -64,16 +70,61 @@ struct Cli {
     init: bool,
 }
 
+#[derive(Subcommand)]
+enum Command {
+    /// Compare two Burp site map exports (XML) of different roles and write a
+    /// redacted report for access control review. Sends no requests.
+    Compare(CompareArgs),
+}
+
+#[derive(Args)]
+struct CompareArgs {
+    /// Export of the role with more privileges.
+    high: PathBuf,
+
+    /// Export of the role with fewer privileges.
+    low: PathBuf,
+
+    /// Global config. Defaults to <config dir>/config.toml when it exists.
+    #[arg(short, long, value_name = "PATH")]
+    config: Option<PathBuf>,
+
+    /// Engagement profile: a path, an id or a display name.
+    #[arg(short, long, value_name = "NAME|PATH")]
+    engagement: Option<String>,
+
+    /// Names of the two roles in the report.
+    #[arg(long, value_names = ["HIGH", "LOW"], num_args = 2, value_delimiter = ',', default_values = ["admin", "user"])]
+    labels: Vec<String>,
+
+    /// Write the report to this file instead of stdout.
+    #[arg(long, value_name = "PATH")]
+    report_out: Option<PathBuf>,
+
+    /// Rows listed per section; the rest is only counted.
+    #[arg(long, value_name = "N", default_value_t = 150)]
+    max_rows: usize,
+
+    /// Also add redacted responses of the endpoints whose label contains this
+    /// text, for example "GET /api/users/{id}" (up to 3 per export).
+    #[arg(long, value_name = "TEXT")]
+    include_bodies: Option<String>,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let store =
         Store::open_default().context("cannot locate the config dir; set REDACTOR_CONFIG_DIR")?;
 
+    if let Some(Command::Compare(args)) = &cli.command {
+        return compare(args, &store);
+    }
+
     if cli.init {
         return init(&store);
     }
 
-    let config = load_config(&cli, &store)?;
+    let config = load_config(cli.config.as_deref(), cli.engagement.as_deref(), &store)?;
     let input = if cli.clipboard {
         clipboard::read()?
     } else {
@@ -174,12 +225,61 @@ fn vault_key() -> Result<VaultKey> {
     Ok(redactor_core::keychain::vault_key()?)
 }
 
-fn load_config(cli: &Cli, store: &Store) -> Result<Config> {
-    let global = match &cli.config {
+fn compare(args: &CompareArgs, store: &Store) -> Result<()> {
+    let config = load_config(args.config.as_deref(), args.engagement.as_deref(), store)?;
+    let redactor = Redactor::new(&config);
+    let high = read_site_map(&args.high)?;
+    let low = read_site_map(&args.low)?;
+
+    let options = ReportOptions {
+        high_label: args.labels[0].clone(),
+        low_label: args.labels[1].clone(),
+        max_rows: args.max_rows,
+    };
+    let mut samples = Vec::new();
+    if let Some(filter) = &args.include_bodies {
+        for (path, role) in [
+            (&args.high, &options.high_label),
+            (&args.low, &options.low_label),
+        ] {
+            let export = open_export(path)?;
+            let found = sitemap::read_samples(export, role, filter, &redactor)
+                .with_context(|| format!("reading {}", path.display()))?;
+            samples.extend(found);
+        }
+    }
+
+    let report = sitemap::report(&high, &low, &redactor, &options, &samples);
+    match &args.report_out {
+        Some(path) => {
+            std::fs::write(path, &report).with_context(|| format!("writing {}", path.display()))?;
+            eprintln!(
+                "redactor: compared {} and {} endpoints, report in {}",
+                high.endpoints.len(),
+                low.endpoints.len(),
+                path.display()
+            );
+        }
+        None => std::io::stdout().write_all(report.as_bytes())?,
+    }
+    Ok(())
+}
+
+fn open_export(path: &Path) -> Result<BufReader<File>> {
+    let file = File::open(path).with_context(|| format!("reading {}", path.display()))?;
+    Ok(BufReader::new(file))
+}
+
+fn read_site_map(path: &Path) -> Result<sitemap::SiteMap> {
+    sitemap::read_map(open_export(path)?).with_context(|| format!("reading {}", path.display()))
+}
+
+fn load_config(config: Option<&Path>, engagement: Option<&str>, store: &Store) -> Result<Config> {
+    let global = match config {
         Some(path) => Config::load(path)?,
         None => store.load_global()?,
     };
-    let Some(engagement) = &cli.engagement else {
+    let Some(engagement) = engagement else {
         return Ok(global);
     };
     let path = Path::new(engagement);

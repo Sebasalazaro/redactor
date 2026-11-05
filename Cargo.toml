@@ -31,6 +31,7 @@ keyring = { version = "3", default-features = false, features = ["apple-native",
 # ONNX Runtime is downloaded once at build time; no HTTP client is compiled in
 # (no `fetch-models`), and tokenizers is built without its `http` feature.
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs"] }
+quick-xml = "0.42"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
