@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-05
+
 ### Added
 - Windows: desktop app in the system tray with an NSIS installer (per user,
   no admin rights), `--clipboard` in the CLI through the native clipboard,
