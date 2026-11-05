@@ -5,6 +5,7 @@ use redactor_core::Config;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::clipboard;
+use crate::compare::{self, ComparisonDto};
 use crate::dto::{
     EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto, VaultDto,
 };
@@ -15,6 +16,8 @@ use crate::state::{AppState, Forgotten};
 use crate::tray;
 use crate::vault::Pair;
 use redactor_core::Restoration;
+use redactor_core::sitemap::ReportOptions;
+use tauri_plugin_dialog::DialogExt;
 
 type CmdResult<T> = Result<T, String>;
 
@@ -161,6 +164,7 @@ pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
     state.clear_last(Forgotten::Freed);
     state.ai.unload();
     state.vaults.unload();
+    state.comparison().clear();
     if let Some(review) = app.get_webview_window(REVIEW)
         && !review.is_visible().unwrap_or(true)
     {
@@ -172,6 +176,99 @@ pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
         released_bytes,
         memory: state.memory(),
     }
+}
+
+// Compare page. The dialogs block, so these run off the main thread.
+
+#[tauri::command]
+pub fn get_compare(state: State<AppState>) -> ComparisonDto {
+    state.comparison().dto()
+}
+
+#[tauri::command]
+pub async fn pick_compare_export(app: AppHandle, role: String) -> CmdResult<ComparisonDto> {
+    let high = match role.as_str() {
+        "high" => true,
+        "low" => false,
+        _ => return Err(format!("unknown role {role:?}")),
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("Choose a Burp site map export")
+            .add_filter("Burp XML", &["xml"])
+            .blocking_pick_file();
+        let state = app.state::<AppState>();
+        let mut comparison = state.comparison();
+        if let Some(path) = picked {
+            comparison.set_export(high, path.into_path().map_err(err)?);
+        }
+        Ok(comparison.dto())
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+pub async fn run_compare(
+    app: AppHandle,
+    high_label: String,
+    low_label: String,
+    include_bodies: Option<String>,
+) -> CmdResult<ComparisonDto> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let exports = state
+            .comparison()
+            .exports()
+            .ok_or("choose both exports first")?;
+        let options = ReportOptions {
+            high_label,
+            low_label,
+            ..Default::default()
+        };
+        let report = compare::run(
+            exports,
+            &state.redactor(),
+            &options,
+            include_bodies.as_deref(),
+        )?;
+        let mut comparison = state.comparison();
+        comparison.set_report(report);
+        Ok(comparison.dto())
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+pub fn copy_compare_report(app: AppHandle, state: State<AppState>) -> CmdResult<()> {
+    let markdown = state.comparison().markdown().ok_or("nothing to copy")?;
+    clipboard::write(&app, markdown)
+}
+
+/// Returns false if the dialog was cancelled.
+#[tauri::command]
+pub async fn save_compare_report(app: AppHandle) -> CmdResult<bool> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let markdown = state.comparison().markdown().ok_or("nothing to save")?;
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("Save the redacted report")
+            .set_file_name("site-map-comparison.md")
+            .add_filter("Markdown", &["md"])
+            .blocking_save_file();
+        let Some(path) = picked else {
+            return Ok(false);
+        };
+        std::fs::write(path.into_path().map_err(err)?, markdown).map_err(err)?;
+        Ok(true)
+    })
+    .await
+    .map_err(err)?
 }
 
 // Dashboard

@@ -4,13 +4,14 @@
   import { api, type AppSettings, type Config, type Engagement, type Status } from "../lib/api";
   import { Autosave, COMMIT_DRAFTS } from "../lib/autosave.svelte";
   import Playground from "./components/Playground.svelte";
+  import Compare from "./pages/Compare.svelte";
   import Engagements from "./pages/Engagements.svelte";
   import GlobalRules from "./pages/GlobalRules.svelte";
   import Overview from "./pages/Overview.svelte";
   import Restore from "./pages/Restore.svelte";
   import Settings from "./pages/Settings.svelte";
 
-  type Section = "overview" | "restore" | "engagements" | "global" | "playground" | "settings";
+  type Section = "overview" | "restore" | "compare" | "engagements" | "global" | "playground" | "settings";
 
   let section = $state<Section>("overview");
   let status = $state<Status | null>(null);
@@ -100,6 +101,7 @@
   const NAV: { id: Section; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "restore", label: "Restore" },
+    { id: "compare", label: "Compare" },
     { id: "engagements", label: "Engagements" },
     { id: "global", label: "Global rules" },
     { id: "playground", label: "Playground" },
@@ -160,6 +162,8 @@
         />
       {:else if section === "restore"}
         <Restore {settings} profileName={active?.name ?? "the global profile"} />
+      {:else if section === "compare"}
+        <Compare profileName={active?.name ?? "the global profile"} />
       {:else if section === "engagements"}
         <Engagements
           {settings}
