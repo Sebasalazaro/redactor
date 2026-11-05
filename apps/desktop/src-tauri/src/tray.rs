@@ -106,7 +106,7 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 fn on_menu(app: &AppHandle, id: &str) {
     match id {
-        "redact" => flow::redact_clipboard(app),
+        "redact" => flow::redact_clipboard_in_background(app),
         "dashboard" => flow::show(app, DASHBOARD),
         "restore" => {
             let app = app.clone();

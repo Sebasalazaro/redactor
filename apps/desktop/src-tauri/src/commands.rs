@@ -128,7 +128,7 @@ pub fn get_overview(state: State<AppState>) -> OverviewDto {
 /// Same as the hotkey: redacts the clipboard and opens the review popup.
 #[tauri::command]
 pub fn redact_now(app: AppHandle) {
-    flow::redact_clipboard(&app);
+    flow::redact_clipboard_in_background(&app);
 }
 
 /// Called by a window once it has saved its state and can go away.
@@ -212,6 +212,7 @@ pub fn save_settings(
     }
     let previous = state.settings();
     flow::register_hotkey(&app, Some(&previous.hotkey), &settings.hotkey)?;
+    state.set_hotkey_error(None);
     state.set_settings(settings)?;
     tray::refresh(&app);
     Ok(())

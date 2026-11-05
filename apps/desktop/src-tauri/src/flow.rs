@@ -4,6 +4,8 @@
 //! Windows are created on demand. With `unload_windows` on, closing one
 //! destroys it, which ends its WebKit process and frees its memory.
 
+use std::sync::Mutex;
+
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
@@ -13,6 +15,13 @@ use crate::vault::Pair;
 
 pub const REVIEW: &str = "review";
 pub const DASHBOARD: &str = "dashboard";
+
+/// `redact_clipboard` for callers on the main thread, which a large clipboard
+/// would otherwise freeze.
+pub fn redact_clipboard_in_background(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || redact_clipboard(&app));
+}
 
 /// Redacts the clipboard. In review mode the result waits in the popup;
 /// otherwise it replaces the clipboard right away.
@@ -117,20 +126,29 @@ pub fn request_dashboard_close(app: &AppHandle) {
     });
 }
 
-/// Shows a window, creating it if needed.
+/// Shows a window, creating it if needed. This always happens on its own
+/// thread: on Windows, creating a web view from the main thread (menu events,
+/// synchronous commands) deadlocks the app, hotkey included.
 pub fn show(app: &AppHandle, label: &str) {
-    let window = match app.get_webview_window(label) {
-        Some(window) => Ok(window),
-        None => build(app, label),
-    };
-    match window {
-        Ok(window) => {
-            let _ = window.unminimize();
-            let _ = window.show();
-            let _ = window.set_focus();
+    static BUILDING: Mutex<()> = Mutex::new(());
+
+    let app = app.clone();
+    let label = label.to_string();
+    std::thread::spawn(move || {
+        let _building = BUILDING.lock().unwrap_or_else(|p| p.into_inner());
+        let window = match app.get_webview_window(&label) {
+            Some(window) => Ok(window),
+            None => build(&app, &label),
+        };
+        match window {
+            Ok(window) => {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            Err(e) => eprintln!("redactor: cannot open {label}: {e}"),
         }
-        Err(e) => eprintln!("redactor: cannot open {label}: {e}"),
-    }
+    });
 }
 
 fn build(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
@@ -178,7 +196,14 @@ pub fn register_hotkey(
         if let Some(previous) = previous.and_then(|p| p.parse::<Shortcut>().ok()) {
             let _ = shortcuts.register(previous);
         }
-        format!("cannot register {hotkey:?}: {e}")
+        if e.to_string().contains("already registered") {
+            format!(
+                "{} is taken by another app, so the hotkey will not work. Choose another one in Settings.",
+                pretty_hotkey(hotkey)
+            )
+        } else {
+            format!("cannot register {hotkey:?}: {e}")
+        }
     })
 }
 

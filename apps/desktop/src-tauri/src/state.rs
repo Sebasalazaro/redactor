@@ -74,6 +74,8 @@ pub struct AppState {
     meter: Mutex<Meter>,
     /// Last configuration error, shown in the dashboard.
     error: Mutex<Option<String>>,
+    /// Why the hotkey could not be registered at startup, if so.
+    hotkey_error: Mutex<Option<String>>,
     redactions: AtomicU64,
     started: Instant,
 }
@@ -102,6 +104,7 @@ impl AppState {
             forgotten: Mutex::new(None),
             meter: Mutex::new(Meter::new()),
             error: Mutex::new(error),
+            hotkey_error: Mutex::new(None),
             redactions: AtomicU64::new(0),
             started: Instant::now(),
         };
@@ -147,7 +150,13 @@ impl AppState {
     }
 
     pub fn error(&self) -> Option<String> {
-        lock(&self.error).clone()
+        lock(&self.error)
+            .clone()
+            .or_else(|| lock(&self.hotkey_error).clone())
+    }
+
+    pub fn set_hotkey_error(&self, error: Option<String>) {
+        *lock(&self.hotkey_error) = error;
     }
 
     pub fn set_pending(&self, redaction: Option<Redaction>) {

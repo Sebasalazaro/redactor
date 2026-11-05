@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Windows: the app froze, hotkey included, when the *Redact clipboard* button
+  or the tray menu had to open a window. Windows are now created off the main
+  thread.
+- The dashboard now says so when another app holds the hotkey.
+
 ## [0.1.0] - 2026-11-05
 
 ### Added

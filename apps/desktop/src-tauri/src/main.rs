@@ -62,7 +62,10 @@ fn main() {
             tray::create(handle)?;
             let hotkey = handle.state::<AppState>().settings().hotkey;
             if let Err(e) = flow::register_hotkey(handle, None, &hotkey) {
+                // Release builds on Windows have no console, so stderr alone
+                // would hide this: the dashboard shows it.
                 eprintln!("redactor: {e}");
+                handle.state::<AppState>().set_hotkey_error(Some(e));
             }
             if first_run {
                 flow::show(handle, DASHBOARD);
