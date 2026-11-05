@@ -148,6 +148,7 @@ redactor request.txt --report               # summary on stderr
 redactor export.har --json > findings.json  # findings without original values
 redactor --remember -p -e globex-q3         # redact the clipboard and remember the values
 redactor --restore -p -e globex-q3          # put real values back into an LLM answer
+redactor compare admin.xml user.xml         # compare two roles from Burp site map exports
 ```
 
 `-e` takes either a path or the name of a file in
@@ -157,6 +158,47 @@ Windows). Set `REDACTOR_CONFIG_DIR` to use another directory.
 `--clipboard` uses the native clipboard on macOS and Windows, and `xclip` on
 Linux. On Windows, prefer it over piping through PowerShell, which can
 re-encode non-ASCII text.
+
+## Compare two roles in Burp
+
+Burp's *Compare site maps* leaves you to read every difference by hand.
+`redactor compare` groups them and writes a redacted report you can give to an
+LLM. It works on two site map exports and never sends a request.
+
+1. Map the application with each role, in separate Burp projects.
+2. In *Target > Site map*, select the host, right-click and save the selected
+   items as XML with base64 encoding, once per role.
+3. Compare them, the role with more privileges first:
+
+```sh
+redactor compare admin.xml user.xml -e globex-q3 --report-out comparison.md
+```
+
+Requests that differ only in ids or parameter values become one endpoint
+(`GET /users/{id}?page`). Static files and items Burp never requested are left
+out. Each endpoint lands in one section:
+
+| Section | What it means |
+|---|---|
+| Same 2xx content | Possible missing access control, or simply shared content |
+| 2xx for both, different content | Lists the JSON fields only one role sees (`+internalNote`) |
+| 2xx for the lower role only | Unusual, worth a look |
+| 2xx for the higher role only | The control looks enforced |
+| Requested by one role only | **Not a finding yet:** replay it with the other role's session |
+| No 2xx for either | Little signal |
+
+The report holds methods, templated paths, parameter names, statuses, body
+sizes and JSON field names, but no values. Keep in mind:
+
+- It only compares what each role already requested. Use Burp's re-request mode
+  or an extension like Autorize to replay requests.
+- It still reveals the application's structure, and names the engine cannot
+  recognize stay readable (`/users/maria/profile`). Add those to `users` or
+  `terms` in the engagement, and read the report before you share it.
+- `--include-bodies "GET /api/users/{id}"` adds up to 3 redacted responses per
+  export. They get the same redaction as any other input, so free text the
+  engine does not recognize stays as it is.
+- Only JSON bodies are compared field by field, and only Burp XML is read.
 
 ## Configuration
 

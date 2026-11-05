@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `redactor compare`: compares two Burp site map exports of different roles
+  and writes a redacted report for access control review, grouped by templated
+  endpoint. It reads exports item by item and sends no requests.
+- Desktop: a *Compare* page runs the same comparison from the dashboard.
+
 ## [0.1.1] - 2026-11-05
 
 ### Fixed
