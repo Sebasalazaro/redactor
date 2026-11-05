@@ -6,6 +6,10 @@
   <img src="docs/images/demo.svg" alt="Animated demo: a request copied from Burp, the hotkey, the review popup highlighting each redacted value, then Copy" width="820">
 </p>
 
+> A personal tool, shared as is. Releases are published for anyone to use, but
+> there is no support and issues and pull requests are not accepted. See
+> [SECURITY.md](SECURITY.md) to report a vulnerability.
+
 Pasting captured requests into an AI assistant is a great way to speed up a
 security test, and a great way to leak a client's hosts, session cookies and
 customer data. `redactor` rewrites the sensitive parts of HTTP traffic
@@ -220,8 +224,6 @@ non-overlapping set, so adding a detector never corrupts the output. More in
 - Partially masked values are designed to be unusable (for example, secrets
   never show more than 12 characters), but they are not encryption.
 
-Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
-
 ## Roadmap
 
 - [x] **Core engine and CLI:** detectors, masking, configs, golden and leak tests
@@ -241,8 +243,7 @@ cargo clippy --all-targets && cargo fmt --check
 ```
 
 All fixtures are fictional: Globex Bank, `.example` domains, RFC 5737 IP
-addresses and AWS documentation keys. Please keep it that way. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+addresses and AWS documentation keys. Never commit real data.
 
 ## Disclaimer
 

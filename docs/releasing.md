@@ -13,8 +13,8 @@ Releases are built and published by
 3. **Changelog.** Rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and
    add a new empty `## [Unreleased]` above it. The release notes are this
    section; the workflow fails if it is missing.
-4. **Merge** that as `chore: release vX.Y.Z` through a pull request.
-5. **Tag** the merge commit and push the tag:
+4. **Commit** that to `main` as `chore: release vX.Y.Z`.
+5. **Tag** that commit and push the tag:
 
    ```sh
    git tag -a vX.Y.Z -m "vX.Y.Z"
