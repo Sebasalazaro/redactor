@@ -103,3 +103,89 @@ fn remembers_and_restores_through_the_vault() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+fn burp_item(path: &str, status: u16, body: &str) -> String {
+    format!(
+        "<item><host>api.globexbank.example</host><port>443</port><protocol>https</protocol>\
+         <method>GET</method><path><![CDATA[{path}]]></path><status>{status}</status>\
+         <mimetype>JSON</mimetype><response base64=\"false\"><![CDATA[HTTP/1.1 {status}\n\
+         Set-Cookie: sid=a7f3e9c1d5b2084f\n\n{body}]]></response></item>"
+    )
+}
+
+#[test]
+fn compares_two_site_map_exports() {
+    let dir = std::env::temp_dir().join(format!("redactor-cli-compare-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let write = |name: &str, items: &[String]| {
+        let path = dir.join(name);
+        let xml = format!("<items burpVersion=\"1\">{}</items>", items.concat());
+        std::fs::write(&path, xml).unwrap();
+        path
+    };
+    let high = write(
+        "high.xml",
+        &[
+            burp_item(
+                "/users/88127",
+                200,
+                r#"{"email": "maria.gomez@globexbank.example"}"#,
+            ),
+            burp_item("/admin/audit", 200, "{}"),
+        ],
+    );
+    let low = write("low.xml", &[burp_item("/users/99301", 403, "denied")]);
+    let report = dir.join("report.md");
+
+    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples");
+    let out = Command::new(env!("CARGO_BIN_EXE_redactor"))
+        .arg("compare")
+        .args([&high, &low])
+        .args(["-c", &format!("{root}/config.toml")])
+        .args(["--labels", "owner,guest", "--report-out"])
+        .arg(&report)
+        .env("REDACTOR_CONFIG_DIR", "/nonexistent")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let report = std::fs::read_to_string(&report).unwrap();
+    assert!(report.contains("owner vs guest"), "{report}");
+    assert!(report.contains("GET /users/{id}"), "{report}");
+    assert!(
+        report.contains("replay these with guest's session"),
+        "{report}"
+    );
+    for secret in [
+        "globexbank",
+        "88127",
+        "99301",
+        "maria.gomez",
+        "a7f3e9c1d5b2084f",
+    ] {
+        assert!(!report.contains(secret), "{secret} leaked:\n{report}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn compare_rejects_files_that_are_not_burp_exports() {
+    let dir = std::env::temp_dir().join(format!("redactor-cli-bad-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad = dir.join("bad.xml");
+    std::fs::write(&bad, "<html></html>").unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_redactor"))
+        .arg("compare")
+        .args([&bad, &bad])
+        .env("REDACTOR_CONFIG_DIR", &dir)
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("not a Burp site map export"), "{stderr}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

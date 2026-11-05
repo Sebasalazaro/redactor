@@ -143,12 +143,59 @@ export function normalizeConfig(raw: Partial<Config>): Config {
   };
 }
 
+export interface CompareSide {
+  statuses: string;
+  size: string;
+  requests: number;
+}
+
+export interface CompareRow {
+  origin: string;
+  endpoint: string;
+  high: CompareSide | null;
+  low: CompareSide | null;
+  notes: string;
+}
+
+export interface CompareSection {
+  class: string;
+  title: string;
+  hint: string;
+  prefixes: [string, number][];
+  rows: CompareRow[];
+}
+
+export interface CompareReport {
+  high_label: string;
+  low_label: string;
+  left_out: {
+    high_unrequested: number;
+    high_static: number;
+    low_unrequested: number;
+    low_static: number;
+  };
+  sections: CompareSection[];
+  samples: { role: string; endpoint: string; text: string }[];
+}
+
+export interface Comparison {
+  high_file: string | null;
+  low_file: string | null;
+  report: CompareReport | null;
+}
+
 export const api = {
   getReview: () => invoke<Review | null>("get_review"),
   finishReview: (text: string, pairs: Pair[]) => invoke<void>("finish_review", { text, pairs }),
   cancelReview: () => invoke<void>("cancel_review"),
   maskText: (text: string) => invoke<string>("mask_text", { text }),
   deepScan: (text: string) => invoke<AiEntity[]>("deep_scan", { text }),
+  getCompare: () => invoke<Comparison>("get_compare"),
+  pickCompareExport: (role: "high" | "low") => invoke<Comparison>("pick_compare_export", { role }),
+  runCompare: (highLabel: string, lowLabel: string, includeBodies: string | null) =>
+    invoke<Comparison>("run_compare", { highLabel, lowLabel, includeBodies }),
+  copyCompareReport: () => invoke<void>("copy_compare_report"),
+  saveCompareReport: () => invoke<boolean>("save_compare_report"),
   preview: (text: string) => invoke<Review>("preview", { text }),
   getStatus: () => invoke<Status>("get_status"),
   getSettings: () => invoke<AppSettings>("get_settings"),

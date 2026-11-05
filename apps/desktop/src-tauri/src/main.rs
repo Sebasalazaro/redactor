@@ -6,6 +6,7 @@
 mod ai;
 mod clipboard;
 mod commands;
+mod compare;
 mod dto;
 mod flow;
 mod memory;
@@ -43,6 +44,7 @@ fn main() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
@@ -124,6 +126,11 @@ fn main() {
             commands::vault_info,
             commands::forget_vault,
             commands::copy_text,
+            commands::get_compare,
+            commands::pick_compare_export,
+            commands::run_compare,
+            commands::copy_compare_report,
+            commands::save_compare_report,
             commands::preview,
             commands::get_status,
             commands::get_settings,
