@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-09
+
 ### Fixed
 - A hostname holding several configured terms (say the client's name from
   the global rules and an app name from the engagement) showed every term
