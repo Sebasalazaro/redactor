@@ -136,7 +136,7 @@ fn sanitize_str(r: &Redactor, key: Option<&str>, value: &str, depth: usize) -> S
     if claim_in(key, DESCRIPTIVE_CLAIMS) {
         return r
             .dict
-            .replace_clients(value)
+            .replace_terms(value, r.masking.pii_keep)
             .unwrap_or_else(|| value.to_string());
     }
     // Let the full engine handle hosts, emails, uuids and nested tokens first;

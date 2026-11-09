@@ -182,14 +182,17 @@ impl Redactor {
         self.sensitive_headers.contains(&name.to_ascii_lowercase())
     }
 
-    // Masking helpers. They all protect client names first, so a partially
-    // visible value never shows the client.
+    // Masking helpers. They all replace configured terms first (client names,
+    // custom terms, users), so a partially visible value never shows one,
+    // and a value holding several terms gets all of them replaced.
 
     /// Masks `value` as a secret with this policy's ratio. Used for values
     /// the user marks by hand.
     pub fn mask_secret(&self, value: &str) -> String {
         let masked = mask::secret(value, self.masking.secret_keep);
-        self.dict.replace_clients(&masked).unwrap_or(masked)
+        self.dict
+            .replace_terms(&masked, self.masking.pii_keep)
+            .unwrap_or(masked)
     }
 
     /// Masks personal data with this policy's ratio (client names become
@@ -197,7 +200,7 @@ impl Redactor {
     pub fn mask_pii(&self, value: &str) -> String {
         let keep = self.masking.pii_keep;
         self.dict
-            .mask_around_clients(value, |s| mask::keep_head(s, keep))
+            .mask_around_terms(value, keep, |s| mask::keep_head(s, keep))
     }
 
     pub(crate) fn mask_id(&self, value: &str) -> String {
@@ -218,7 +221,7 @@ impl Redactor {
         if self.is_allowed_domain(host) {
             return self
                 .dict
-                .replace_clients(host)
+                .replace_terms(host, self.masking.pii_keep)
                 .unwrap_or_else(|| host.to_string());
         }
         let labels: Vec<&str> = host.split('.').collect();
@@ -234,7 +237,7 @@ impl Redactor {
             .iter()
             .enumerate()
             .map(|(i, label)| {
-                if let Some(replaced) = self.dict.replace_clients(label) {
+                if let Some(replaced) = self.dict.replace_terms(label, self.masking.pii_keep) {
                     replaced
                 } else if i == registrable {
                     mask::keep_head(label, self.masking.pii_keep)
@@ -380,5 +383,37 @@ mod tests {
         );
         assert_eq!(r.mask_host("srv-db01"), "sr*-db**");
         assert_eq!(r.mask_host("fonts.googleapis.com"), "fonts.googleapis.com");
+    }
+
+    /// A global client name and an engagement term in the same hostname:
+    /// both are replaced, not only the one with higher priority.
+    #[test]
+    fn replaces_every_term_inside_a_host() {
+        let r = Redactor::new(&Config {
+            client: vec!["Globex".into()],
+            terms: vec![crate::config::CustomTerm {
+                value: "Wavepay".into(),
+                replacement: Some("[APP]".into()),
+            }],
+            ..Default::default()
+        });
+        assert_eq!(
+            r.mask_host("api.globexwavepay.example"),
+            "api.[CLIENT][APP].example"
+        );
+        assert_eq!(
+            r.mask_host("wavepay-qa.globex.example"),
+            "[APP]-qa.[CLIENT].example"
+        );
+        let out = r
+            .redact(
+                "GET / HTTP/1.1
+Host: portal-wavepay.globex-cdn.example
+X-App: wavepay
+",
+            )
+            .output;
+        assert!(!out.to_lowercase().contains("wavepay"), "{out}");
+        assert!(!out.to_lowercase().contains("globex"), "{out}");
     }
 }
