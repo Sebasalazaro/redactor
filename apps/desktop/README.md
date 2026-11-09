@@ -4,6 +4,13 @@ Menu bar app for macOS and system tray app for Windows (Linux should work but
 is untested). Press a hotkey anywhere, review the redacted clipboard in a
 popup and press Enter to copy it.
 
+On Windows it behaves like a regular app: launching it opens the dashboard,
+with a taskbar icon you can pin. Closing the window keeps redactor in the tray
+so the hotkey keeps working; *Quit redactor* (tray or Settings) stops it. Only
+one copy runs at a time, and *Start at login* starts it quietly in the tray.
+Events and errors go to `redactor.log` in the config folder (never clipboard
+contents), which is the place to look if the hotkey misbehaves.
+
 ![flow](../../docs/desktop-flow.svg)
 
 ## Features
