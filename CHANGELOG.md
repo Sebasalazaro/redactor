@@ -6,11 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-09
+
 ### Added
 - `redactor compare`: compares two Burp site map exports of different roles
   and writes a redacted report for access control review, grouped by templated
   endpoint. It reads exports item by item and sends no requests.
 - Desktop: a *Compare* page runs the same comparison from the dashboard.
+- *Start at login* in Settings (off by default): starts quietly in the tray.
+- Settings shows whether the hotkey is active and when it was last received.
+- A diagnostic log, `redactor.log` in the config folder: app events and
+  errors, never clipboard contents.
+
+### Changed
+- Windows: launching redactor opens the dashboard, with its own taskbar icon
+  that can be pinned. Closing the window keeps it in the tray for the hotkey
+  (explained the first time); *Quit redactor* in the tray or in Settings stops
+  it, web view processes included.
+- Only one copy runs at a time: launching it again brings the window back
+  instead of starting a second copy that could not get the hotkey.
 
 ## [0.1.1] - 2026-11-05
 

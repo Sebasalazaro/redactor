@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-redactor-core = { path = "../redactor-core", version = "0.1.0", features = ["keychain"] }
+redactor-core = { path = "../redactor-core", version = "0.2.0", features = ["keychain"] }
 serde_json.workspace = true
 
 [target.'cfg(windows)'.dependencies]
