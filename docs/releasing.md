@@ -9,7 +9,9 @@ Releases are built and published by
    the CLI and the desktop app on each platform you can.
 2. **Version.** Bump `version` in the root `Cargo.toml` (the crates inherit
    it), `apps/desktop/package.json` and `apps/desktop/src-tauri/tauri.conf.json`
-   if it sets one, then run `cargo check` so `Cargo.lock` follows.
+   if it sets one, and the `redactor-core` version that
+   `crates/redactor-cli/Cargo.toml` requires on a minor or major bump. Then
+   run `cargo check` so `Cargo.lock` follows.
 3. **Changelog.** Rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and
    add a new empty `## [Unreleased]` above it. The release notes are this
    section; the workflow fails if it is missing.
