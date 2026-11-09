@@ -57,6 +57,10 @@ pub struct StatusDto {
     pub model_dir: String,
     pub ai_installed: bool,
     pub error: Option<String>,
+    pub hotkey_active: bool,
+    /// Seconds since the hotkey was last received, if it was.
+    pub hotkey_last_press_secs: Option<u64>,
+    pub log_file: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

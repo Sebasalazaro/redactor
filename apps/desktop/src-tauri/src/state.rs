@@ -78,6 +78,8 @@ pub struct AppState {
     error: Mutex<Option<String>>,
     /// Why the hotkey could not be registered at startup, if so.
     hotkey_error: Mutex<Option<String>>,
+    /// When the hotkey was last received, to show it works.
+    last_hotkey: Mutex<Option<Instant>>,
     redactions: AtomicU64,
     started: Instant,
 }
@@ -108,6 +110,7 @@ impl AppState {
             meter: Mutex::new(Meter::new()),
             error: Mutex::new(error),
             hotkey_error: Mutex::new(None),
+            last_hotkey: Mutex::new(None),
             redactions: AtomicU64::new(0),
             started: Instant::now(),
         };
@@ -164,6 +167,18 @@ impl AppState {
 
     pub fn set_hotkey_error(&self, error: Option<String>) {
         *lock(&self.hotkey_error) = error;
+    }
+
+    pub fn hotkey_active(&self) -> bool {
+        lock(&self.hotkey_error).is_none()
+    }
+
+    pub fn hotkey_pressed(&self) {
+        *lock(&self.last_hotkey) = Some(Instant::now());
+    }
+
+    pub fn last_hotkey_secs(&self) -> Option<u64> {
+        lock(&self.last_hotkey).map(|t| t.elapsed().as_secs())
     }
 
     pub fn set_pending(&self, redaction: Option<Redaction>) {

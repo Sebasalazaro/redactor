@@ -61,6 +61,8 @@ export interface AppSettings {
   clear_clipboard_on_cancel: boolean;
   remember: boolean;
   unload_windows: boolean;
+  launch_at_login: boolean;
+  close_notice_shown: boolean;
 }
 
 export interface Engagement {
@@ -124,6 +126,9 @@ export interface Status {
   model_dir: string;
   ai_installed: boolean;
   error: string | null;
+  hotkey_active: boolean;
+  hotkey_last_press_secs: number | null;
+  log_file: string | null;
 }
 
 export const DEFAULT_MASKING: MaskingConfig = { id_cut: 0.2, secret_keep: 0.3, pii_keep: 0.4 };
@@ -215,6 +220,7 @@ export const api = {
   forgetVault: () => invoke<void>("forget_vault"),
   copyText: (text: string) => invoke<void>("copy_text", { text }),
   closeWindow: () => invoke<void>("close_window"),
+  quit: () => invoke<void>("quit"),
   copyLast: () => invoke<void>("copy_last"),
   clearLast: () => invoke<void>("clear_last"),
   clearClipboard: () => invoke<void>("clear_clipboard"),

@@ -30,6 +30,10 @@ pub struct AppSettings {
     /// Destroy windows when they close instead of hiding them. Frees the
     /// web view processes (~30-40 MB each) at the cost of a slower reopen.
     pub unload_windows: bool,
+    /// Start in the background when the user logs in.
+    pub launch_at_login: bool,
+    /// The user has seen that closing the dashboard keeps the app running.
+    pub close_notice_shown: bool,
 }
 
 impl Default for AppSettings {
@@ -43,6 +47,8 @@ impl Default for AppSettings {
             clear_clipboard_on_cancel: false,
             remember: true,
             unload_windows: true,
+            launch_at_login: false,
+            close_notice_shown: false,
         }
     }
 }

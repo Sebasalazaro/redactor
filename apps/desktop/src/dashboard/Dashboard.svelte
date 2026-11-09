@@ -74,13 +74,37 @@
     if (to === "engagements") editing = engagement ?? null;
   }
 
-  /** Saves everything still pending, then lets the window close. */
-  async function closeSafely() {
+  /** Saves everything still pending. */
+  async function flush() {
     // Commit half-typed values, let effects schedule their saves, run them.
     window.dispatchEvent(new Event(COMMIT_DRAFTS));
     await tick();
     await autosave.flush();
+  }
+
+  /** Saves everything still pending, then lets the window close. */
+  async function closeSafely() {
+    await flush();
     await api.closeWindow();
+  }
+
+  async function quit() {
+    await flush();
+    await api.quit();
+  }
+
+  // The first time the window is closed, say that the app keeps running.
+  let closeNotice = $state(false);
+  const isMac = navigator.platform.toLowerCase().includes("mac");
+
+  async function dismissNotice(andQuit: boolean) {
+    closeNotice = false;
+    if (settings) {
+      settings.close_notice_shown = true;
+      const value = $state.snapshot(settings);
+      await autosave.now("settings", value, () => api.saveSettings(value));
+    }
+    await (andQuit ? quit() : closeSafely());
   }
 
   onMount(() => {
@@ -92,6 +116,7 @@
         settings = fresh;
       }),
       listen("close-requested", closeSafely),
+      listen("close-notice", () => (closeNotice = true)),
     ];
     return () => {
       unlisteners.forEach((u) => u.then((f) => f()));
@@ -182,11 +207,27 @@
         <p class="muted">Profile: {active?.name ?? "global only"}</p>
         <Playground />
       {:else if section === "settings"}
-        <Settings bind:settings {status} />
+        <Settings onquit={quit} bind:settings {status} />
       {/if}
     {/if}
   </main>
 </div>
+
+{#if closeNotice}
+  <div class="overlay">
+    <div class="dialog card" role="alertdialog" aria-modal="true" aria-labelledby="notice-title">
+      <h3 id="notice-title">redactor keeps running</h3>
+      <p>
+        Closing this window leaves redactor in the {isMac ? "menu bar" : "system tray"}, so the hotkey
+        keeps working. To stop it, use <strong>Quit redactor</strong> there or in Settings.
+      </p>
+      <div class="dialog-actions">
+        <button class="btn" onclick={() => dismissNotice(true)}>Quit redactor</button>
+        <button class="btn primary" onclick={() => dismissNotice(false)}>Keep running</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .layout {
@@ -287,6 +328,33 @@
   main > h2 {
     margin: 0 0 4px;
     font-size: 20px;
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgb(0 0 0 / 0.45);
+    z-index: 10;
+  }
+  .dialog {
+    max-width: 420px;
+    padding: 20px;
+  }
+  .dialog h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+  .dialog p {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
   }
   .banner {
     margin-bottom: 16px;

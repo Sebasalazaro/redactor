@@ -112,11 +112,11 @@ fn on_menu(app: &AppHandle, id: &str) {
             let app = app.clone();
             std::thread::spawn(move || {
                 if let Err(e) = flow::restore_clipboard(&app) {
-                    eprintln!("redactor: cannot restore: {e}");
+                    crate::log::info(format_args!("cannot restore: {e}"));
                 }
             });
         }
-        "quit" => app.exit(0),
+        "quit" => flow::quit(app),
         _ => {
             if let Some(name) = id.strip_prefix(ENGAGEMENT_PREFIX) {
                 let state = app.state::<AppState>();

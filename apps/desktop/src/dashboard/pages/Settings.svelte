@@ -1,9 +1,26 @@
 <script lang="ts">
-  import type { AppSettings, Status } from "../../lib/api";
-  import { FETCH_MODEL } from "../../lib/format";
+  import { onMount } from "svelte";
+  import { api, type AppSettings, type Status } from "../../lib/api";
+  import { ago, FETCH_MODEL } from "../../lib/format";
   import HotkeyField from "../components/HotkeyField.svelte";
 
-  let { settings = $bindable(), status }: { settings: AppSettings; status: Status | null } = $props();
+  let {
+    settings = $bindable(),
+    status,
+    onquit,
+  }: { settings: AppSettings; status: Status | null; onquit: () => void } = $props();
+
+  // Polled, so a press of the hotkey shows up here while the page is open.
+  let live = $state<Status | null>(null);
+  const current = $derived(live ?? status);
+  const isMac = navigator.platform.toLowerCase().includes("mac");
+
+  onMount(() => {
+    const refresh = async () => (live = await api.getStatus());
+    refresh();
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  });
 
   const FORGET_OPTIONS = [
     [5, "5 minutes"],
@@ -21,6 +38,17 @@
     <div>
       <strong>Shortcut</strong>
       <p>Redacts the clipboard from any app.</p>
+      {#if current}
+        <p class="hotkey-state" class:bad={!current.hotkey_active} role="status">
+          {#if !current.hotkey_active}
+            Not active: another app may be using it. Record a different one.
+          {:else if current.hotkey_last_press_secs !== null}
+            Active · last press {ago(current.hotkey_last_press_secs)}
+          {:else}
+            Active · press it once to check it reaches redactor
+          {/if}
+        </p>
+      {/if}
     </div>
     <HotkeyField bind:hotkey={settings.hotkey} />
   </div>
@@ -55,7 +83,7 @@
     <div>
       <strong>Remember redacted values (reversible mode)</strong>
       <p>
-        Keeps what you copy in an encrypted vault per profile (AES-256-GCM, key in the macOS Keychain),
+        Keeps what you copy in an encrypted vault per profile (AES-256-GCM, key in the system keychain),
         so <em>Restore</em> can put the real values back into an LLM answer.
       </p>
     </div>
@@ -102,6 +130,27 @@
   </div>
 </div>
 
+<h4>App</h4>
+<div class="rows">
+  <div class="row">
+    <div>
+      <strong>Start at login</strong>
+      <p>
+        Starts quietly in the {isMac ? "menu bar" : "system tray"} when you log in, so the hotkey is
+        ready without opening anything.
+      </p>
+    </div>
+    <input type="checkbox" class="toggle" bind:checked={settings.launch_at_login} />
+  </div>
+  <div class="row">
+    <div>
+      <strong>Quit redactor</strong>
+      <p>Closing this window keeps redactor running for the hotkey. This stops it completely.</p>
+    </div>
+    <button class="btn" onclick={onquit}>Quit</button>
+  </div>
+</div>
+
 <h4>Storage</h4>
 <div class="rows">
   <div class="row">
@@ -111,6 +160,15 @@
     </div>
     <code class="path">{status?.config_dir}</code>
   </div>
+  {#if current?.log_file}
+    <div class="row">
+      <div>
+        <strong>Diagnostic log</strong>
+        <p>App events and errors, never clipboard contents. Useful when the hotkey misbehaves.</p>
+      </div>
+      <code class="path">{current.log_file}</code>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -153,6 +211,13 @@
     width: 18px;
     height: 18px;
     accent-color: var(--accent);
+  }
+  .row p.hotkey-state {
+    margin-top: 6px;
+    color: var(--ok);
+  }
+  .row p.hotkey-state.bad {
+    color: var(--danger);
   }
   .installed {
     color: var(--ok);

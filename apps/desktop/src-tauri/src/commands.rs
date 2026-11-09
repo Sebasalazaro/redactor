@@ -3,6 +3,7 @@
 
 use redactor_core::Config;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_autostart::ManagerExt;
 
 use crate::clipboard;
 use crate::compare::{self, ComparisonDto};
@@ -132,6 +133,11 @@ pub fn get_overview(state: State<AppState>) -> OverviewDto {
 #[tauri::command]
 pub fn redact_now(app: AppHandle) {
     flow::redact_clipboard_in_background(&app);
+}
+
+#[tauri::command]
+pub fn quit(app: AppHandle) {
+    flow::quit(&app);
 }
 
 /// Called by a window once it has saved its state and can go away.
@@ -290,6 +296,9 @@ pub fn get_status(state: State<AppState>) -> StatusDto {
         model_dir: state.ai.dir().display().to_string(),
         ai_installed: state.ai.installed(),
         error: state.error(),
+        hotkey_active: state.hotkey_active(),
+        hotkey_last_press_secs: state.last_hotkey_secs(),
+        log_file: crate::log::path().map(|p| p.display().to_string()),
     }
 }
 
@@ -309,6 +318,19 @@ pub fn save_settings(
     }
     let previous = state.settings();
     flow::register_hotkey(&app, Some(&previous.hotkey), &settings.hotkey)?;
+    if previous.hotkey != settings.hotkey {
+        crate::log::info(format_args!("hotkey changed to {}", settings.hotkey));
+    }
+    if previous.launch_at_login != settings.launch_at_login {
+        let autolaunch = app.autolaunch();
+        let applied = if settings.launch_at_login {
+            autolaunch.enable()
+        } else {
+            autolaunch.disable()
+        };
+        applied.map_err(|e| format!("cannot change start at login: {e}"))?;
+        crate::log::info(format_args!("start at login: {}", settings.launch_at_login));
+    }
     state.set_hotkey_error(None);
     state.set_settings(settings)?;
     tray::refresh(&app);

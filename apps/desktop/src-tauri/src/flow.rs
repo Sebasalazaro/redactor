@@ -76,7 +76,7 @@ fn remember(app: &AppHandle, pairs: Vec<Pair>) {
         let state = app.state::<AppState>();
         let profile = state.profile();
         if let Err(e) = state.vaults.remember(&state.store, &profile, &pairs) {
-            eprintln!("redactor: cannot update the vault: {e}");
+            crate::log::info(format_args!("cannot update the vault: {e}"));
         }
     });
 }
@@ -115,6 +115,15 @@ fn close_review(app: &AppHandle) {
 
 /// Asks the dashboard to save pending edits before it is destroyed. It calls
 /// `close_window` when done; if it does not answer, it is closed anyway.
+/// Quits for good: windows first, so their web view processes end with them.
+pub fn quit(app: &AppHandle) {
+    crate::log::info("quit");
+    for window in app.webview_windows().into_values() {
+        let _ = window.destroy();
+    }
+    app.exit(0);
+}
+
 pub fn request_dashboard_close(app: &AppHandle) {
     let _ = app.emit_to(DASHBOARD, "close-requested", ());
     let app = app.clone();
@@ -142,11 +151,12 @@ pub fn show(app: &AppHandle, label: &str) {
         };
         match window {
             Ok(window) => {
+                crate::log::info(format_args!("showing {label}"));
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
-            Err(e) => eprintln!("redactor: cannot open {label}: {e}"),
+            Err(e) => crate::log::info(format_args!("cannot open {label}: {e}")),
         }
     });
 }

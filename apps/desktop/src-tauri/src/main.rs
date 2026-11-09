@@ -1,5 +1,6 @@
-//! redactor desktop: a menu bar app that redacts the clipboard on a global
-//! hotkey and shows the result for review before it is pasted anywhere.
+//! redactor desktop: redacts the clipboard on a global hotkey and shows the
+//! result for review before it is pasted anywhere. It lives in the menu bar
+//! (macOS) or the system tray; on Windows, launching it opens the dashboard.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -9,6 +10,7 @@ mod commands;
 mod compare;
 mod dto;
 mod flow;
+mod log;
 mod memory;
 mod settings;
 mod state;
@@ -28,6 +30,9 @@ use crate::state::AppState;
 /// app in a child process (see `ai.rs`), then exits.
 const WORKER_FLAG: &str = "--ner-worker";
 
+/// Passed by start at login: run in the tray without opening a window.
+const BACKGROUND_FLAG: &str = "--background";
+
 fn main() {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
     if args.get(1).is_some_and(|a| a == WORKER_FLAG) {
@@ -41,14 +46,34 @@ fn main() {
     let store =
         Store::open_default().expect("cannot locate the config dir; set REDACTOR_CONFIG_DIR");
     let first_run = !store.global_path().exists();
+    let background = args.iter().any(|a| a == BACKGROUND_FLAG);
+    log::init(store.dir());
+    log::info(format_args!(
+        "start {}{}",
+        env!("CARGO_PKG_VERSION"),
+        if background { " in the background" } else { "" }
+    ));
 
     let app = tauri::Builder::default()
+        // First, so a second launch hands over before doing anything else.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !args.iter().any(|a| a == BACKGROUND_FLAG) {
+                log::info("already running: showing the dashboard");
+                flow::show(app, DASHBOARD);
+            }
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![BACKGROUND_FLAG]),
+        ))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
+                        log::info("hotkey pressed");
+                        app.state::<AppState>().hotkey_pressed();
                         flow::redact_clipboard(app);
                     }
                 })
@@ -63,13 +88,16 @@ fn main() {
             let handle = app.handle();
             tray::create(handle)?;
             let hotkey = handle.state::<AppState>().settings().hotkey;
-            if let Err(e) = flow::register_hotkey(handle, None, &hotkey) {
-                // Release builds on Windows have no console, so stderr alone
-                // would hide this: the dashboard shows it.
-                eprintln!("redactor: {e}");
-                handle.state::<AppState>().set_hotkey_error(Some(e));
+            match flow::register_hotkey(handle, None, &hotkey) {
+                Ok(()) => log::info(format_args!("hotkey {hotkey} registered")),
+                Err(e) => {
+                    log::info(&e);
+                    handle.state::<AppState>().set_hotkey_error(Some(e));
+                }
             }
-            if first_run {
+            // On Windows the app is launched like any other, from the Start
+            // menu or the taskbar, so it opens its window.
+            if first_run || (cfg!(not(target_os = "macos")) && !background) {
                 flow::show(handle, DASHBOARD);
             }
 
@@ -94,7 +122,13 @@ fn main() {
             // (or hides it, if the user prefers faster reopening).
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
-                if window.label() == REVIEW {
+                if window.label() == DASHBOARD
+                    && !app.state::<AppState>().settings().close_notice_shown
+                {
+                    // The page explains the app keeps running, then closes.
+                    api.prevent_close();
+                    let _ = app.emit_to(DASHBOARD, "close-notice", ());
+                } else if window.label() == REVIEW {
                     api.prevent_close();
                     flow::cancel_review(app);
                 } else if app.state::<AppState>().settings().unload_windows {
@@ -120,6 +154,7 @@ fn main() {
             commands::create_engagement,
             commands::redact_now,
             commands::close_window,
+            commands::quit,
             commands::deep_scan,
             commands::restore_text,
             commands::restore_clipboard,
