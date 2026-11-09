@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- A hostname holding several configured terms (say the client's name from
+  the global rules and an app name from the engagement) showed every term
+  but the client's. All of them are now replaced, also in emails, JWT claims
+  and partially masked values.
+
 ## [0.2.0] - 2026-11-09
 
 ### Added

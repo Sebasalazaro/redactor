@@ -156,7 +156,6 @@ fn on_word_boundary(text: &str, start: usize, end: usize) -> bool {
 /// Every configured literal term, ready to be searched.
 pub(crate) struct Dictionary {
     all: Option<Matcher>,
-    clients: Option<Matcher>,
 }
 
 impl Dictionary {
@@ -166,13 +165,11 @@ impl Dictionary {
         hosts: &[String],
         terms: &[CustomTerm],
     ) -> Self {
-        let client_entries: Vec<_> = clients
+        let mut all: Vec<_> = clients
             .iter()
             .flat_map(|c| client_variants(c))
             .map(|v| (v, TermKind::Client))
             .collect();
-
-        let mut all = client_entries.clone();
         all.extend(users.iter().map(|u| (u.clone(), TermKind::User)));
         all.extend(hosts.iter().map(|h| (h.clone(), TermKind::Host)));
         all.extend(terms.iter().map(|t| {
@@ -182,7 +179,6 @@ impl Dictionary {
 
         Self {
             all: Matcher::build(all),
-            clients: Matcher::build(client_entries),
         }
     }
 
@@ -191,25 +187,30 @@ impl Dictionary {
         self.all.as_ref().map(|m| m.find(text)).unwrap_or_default()
     }
 
-    /// Byte ranges of client names in `text`.
-    pub fn client_spans(&self, text: &str) -> Vec<(usize, usize)> {
-        self.clients
-            .as_ref()
-            .map(|m| m.find(text).into_iter().map(|t| (t.start, t.end)).collect())
-            .unwrap_or_default()
-    }
-
-    /// Rewrites `text` with `mask` applied to everything except client names,
-    /// which become [`CLIENT_PLACEHOLDER`].
-    pub fn mask_around_clients(&self, text: &str, mask: impl Fn(&str) -> String) -> String {
+    /// Rewrites `text` with `mask` applied to everything except configured
+    /// terms. Every term inside is protected, not only the first kind found:
+    /// client names become [`CLIENT_PLACEHOLDER`], custom terms their
+    /// replacement, users and listed hosts keep `keep` of each word.
+    pub fn mask_around_terms(
+        &self,
+        text: &str,
+        keep: f64,
+        mask: impl Fn(&str) -> String,
+    ) -> String {
         let mut out = String::with_capacity(text.len());
         let mut cursor = 0;
-        for (start, end) in self.client_spans(text) {
-            if start > cursor {
-                out.push_str(&mask(&text[cursor..start]));
+        for m in self.find(text) {
+            if m.start > cursor {
+                out.push_str(&mask(&text[cursor..m.start]));
             }
-            out.push_str(CLIENT_PLACEHOLDER);
-            cursor = end;
+            match m.kind {
+                TermKind::Client => out.push_str(CLIENT_PLACEHOLDER),
+                TermKind::Custom(replacement) => out.push_str(&replacement),
+                TermKind::User | TermKind::Host => {
+                    out.push_str(&crate::mask::keep_head(&text[m.start..m.end], keep));
+                }
+            }
+            cursor = m.end;
         }
         if cursor < text.len() {
             out.push_str(&mask(&text[cursor..]));
@@ -217,12 +218,13 @@ impl Dictionary {
         out
     }
 
-    /// Replaces client names only. Returns `None` when there were none.
-    pub fn replace_clients(&self, text: &str) -> Option<String> {
-        if self.client_spans(text).is_empty() {
+    /// Replaces every configured term in `text` and leaves the rest as is.
+    /// Returns `None` when there were none.
+    pub fn replace_terms(&self, text: &str, keep: f64) -> Option<String> {
+        if self.find(text).is_empty() {
             return None;
         }
-        Some(self.mask_around_clients(text, str::to_string))
+        Some(self.mask_around_terms(text, keep, str::to_string))
     }
 }
 
@@ -282,28 +284,28 @@ mod tests {
     fn replaces_every_spelling_case_insensitively() {
         let d = dict();
         assert_eq!(
-            d.replace_clients("GlobexBank app on api.globex-bank.example")
+            d.replace_terms("GlobexBank app on api.globex-bank.example", 0.3)
                 .unwrap(),
             "[CLIENT] app on api.[CLIENT].example"
         );
-        assert_eq!(d.replace_clients("nothing here"), None);
+        assert_eq!(d.replace_terms("nothing here", 0.3), None);
     }
 
     #[test]
     fn short_terms_need_word_boundaries() {
         let d = dict();
         assert_eq!(
-            d.replace_clients("x-gbx-token").unwrap(),
+            d.replace_terms("x-gbx-token", 0.3).unwrap(),
             "x-[CLIENT]-token"
         );
-        assert_eq!(d.replace_clients("aGBXz91"), None);
+        assert_eq!(d.replace_terms("aGBXz91", 0.3), None);
     }
 
     #[test]
     fn four_letter_names_match_inside_hostnames() {
         let d = Dictionary::new(&["Acme".into()], &[], &[], &[]);
         assert_eq!(
-            d.replace_clients("api.acmemilesapp.com").unwrap(),
+            d.replace_terms("api.acmemilesapp.com", 0.3).unwrap(),
             "api.[CLIENT]milesapp.com"
         );
     }
@@ -312,12 +314,12 @@ mod tests {
     fn ignores_case_and_accents() {
         let d = Dictionary::new(&["Añil Pagos".into(), "BANCO ÉXITO".into()], &[], &[], &[]);
         assert_eq!(
-            d.replace_clients("anilpagos-app AÑIL-PAGOS Añil pagos")
+            d.replace_terms("anilpagos-app AÑIL-PAGOS Añil pagos", 0.3)
                 .unwrap(),
             "[CLIENT]-app [CLIENT] [CLIENT]"
         );
         assert_eq!(
-            d.replace_clients("bancoexito.com Banco Éxito banco_éxito")
+            d.replace_terms("bancoexito.com Banco Éxito banco_éxito", 0.3)
                 .unwrap(),
             "[CLIENT].com [CLIENT] [CLIENT]"
         );
@@ -358,7 +360,7 @@ mod tests {
     fn masks_around_clients() {
         let d = dict();
         assert_eq!(
-            d.mask_around_clients("ops.globexbank", |s| "*".repeat(s.len())),
+            d.mask_around_terms("ops.globexbank", 0.3, |s| "*".repeat(s.len())),
             "****[CLIENT]"
         );
     }
