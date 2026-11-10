@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type AppSettings, type Status } from "../../lib/api";
-  import { ago, FETCH_MODEL } from "../../lib/format";
+  import { api, type AppSettings, type Overview, type Status } from "../../lib/api";
+  import { ago, bytes, FETCH_MODEL } from "../../lib/format";
   import HotkeyField from "../components/HotkeyField.svelte";
 
   let {
@@ -15,12 +15,36 @@
   const current = $derived(live ?? status);
   const isMac = navigator.platform.toLowerCase().includes("mac");
 
+  // Memory figures are local syscalls, cheap enough to poll while open.
+  let overview = $state<Overview | null>(null);
+  let notice = $state("");
+  const appTotal = $derived(
+    overview ? overview.memory.app_bytes + overview.memory.webview_bytes + overview.memory.ai_bytes : 0,
+  );
+
   onMount(() => {
-    const refresh = async () => (live = await api.getStatus());
+    const refresh = async () => {
+      [live, overview] = await Promise.all([api.getStatus(), api.getOverview()]);
+    };
     refresh();
     const timer = setInterval(refresh, 2000);
     return () => clearInterval(timer);
   });
+
+  function flash(text: string) {
+    notice = text;
+    setTimeout(() => (notice = ""), 4000);
+  }
+
+  async function free() {
+    const result = await api.freeMemory();
+    flash(`Session data cleared, ${bytes(result.released_bytes)} returned to the system`);
+  }
+
+  async function clearClipboard() {
+    await api.clearClipboard();
+    flash("Clipboard cleared");
+  }
 
   const FORGET_OPTIONS = [
     [5, "5 minutes"],
@@ -43,9 +67,9 @@
           {#if !current.hotkey_active}
             Not active: another app may be using it. Record a different one.
           {:else if current.hotkey_last_press_secs !== null}
-            Active · last press {ago(current.hotkey_last_press_secs)}
+            Active, last pressed {ago(current.hotkey_last_press_secs)}
           {:else}
-            Active · press it once to check it reaches redactor
+            Active. Press it once to check it reaches redactor
           {/if}
         </p>
       {/if}
@@ -66,7 +90,7 @@
   <div class="row">
     <div>
       <strong>Keep the last redaction</strong>
-      <p>Lets you copy it again from the overview. Only the redacted text, only in memory.</p>
+      <p>Lets you copy it again from Home. Only the redacted text, only in memory.</p>
     </div>
     <input type="checkbox" class="toggle" bind:checked={settings.keep_last} />
   </div>
@@ -100,6 +124,25 @@
 
 <h4>Memory</h4>
 <div class="rows">
+  <div class="row">
+    <div>
+      <strong>In use by redactor</strong>
+      {#if overview}
+        <p>
+          {bytes(appTotal)} in total: app {bytes(overview.memory.app_bytes)}, windows
+          {bytes(overview.memory.webview_bytes)}{overview.ai_loaded
+            ? `, AI model ${bytes(overview.memory.ai_bytes)}`
+            : ""}. {overview.redactions}
+          {overview.redactions === 1 ? "redaction" : "redactions"} this session.
+        </p>
+      {/if}
+      {#if notice}<p class="notice" role="status">{notice}</p>{/if}
+    </div>
+    <div class="actions">
+      <button class="btn" onclick={clearClipboard}>Clear clipboard</button>
+      <button class="btn" onclick={free}>Free memory</button>
+    </div>
+  </div>
   <div class="row">
     <div>
       <strong>Unload windows when closed</strong>
@@ -155,6 +198,13 @@
 <div class="rows">
   <div class="row">
     <div>
+      <strong>Version</strong>
+      <p>New versions are on the GitHub releases page. Install over this one: settings are kept.</p>
+    </div>
+    <code class="path">{status?.version ?? ""}</code>
+  </div>
+  <div class="row">
+    <div>
       <strong>Config folder</strong>
       <p>Shared with the <code>redactor</code> CLI. Files are readable only by you.</p>
     </div>
@@ -177,11 +227,10 @@
     font-size: 20px;
   }
   h4 {
-    margin: 22px 0 8px;
+    margin: 24px 0 8px;
     color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 500;
   }
   .rows {
     max-width: 820px;
@@ -222,6 +271,14 @@
   .installed {
     color: var(--ok);
     font-weight: 600;
+  }
+  .actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .row p.notice {
+    color: var(--ok);
   }
   .path {
     font-size: 12px;

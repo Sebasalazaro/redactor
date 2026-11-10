@@ -22,8 +22,7 @@ X-Forwarded-For: 203.0.113.45
 </script>
 
 <p class="intro">
-  Try the active profile on any text. Nothing here is copied or saved. Changes to the rules apply
-  after saving.
+  Try the active rules on any text. Nothing here is copied or saved.
 </p>
 <div class="panes">
   <label>

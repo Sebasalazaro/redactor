@@ -75,7 +75,6 @@
 
 <header>
   <div>
-    <h2>Restore</h2>
     <p class="muted">
       Paste an answer from your LLM: redacted values become the real ones again, from the encrypted
       vault of <strong>{profileName}</strong>{entries !== null ? ` (${entries} values remembered)` : ""}.
@@ -126,10 +125,6 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-  }
-  h2 {
-    margin: 0 0 4px;
-    font-size: 20px;
   }
   header p {
     margin: 0 0 14px;

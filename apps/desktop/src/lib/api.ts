@@ -129,6 +129,7 @@ export interface Status {
   hotkey_active: boolean;
   hotkey_last_press_secs: number | null;
   log_file: string | null;
+  version: string;
 }
 
 export const DEFAULT_MASKING: MaskingConfig = { id_cut: 0.2, secret_keep: 0.3, pii_keep: 0.4 };
