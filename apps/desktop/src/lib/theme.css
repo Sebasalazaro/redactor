@@ -18,6 +18,9 @@
   --danger-soft: #fde8e6;
   --ok: #1f8a4c;
   --focus: #2f6fe4;
+  /* A replacement tag looks like a redaction bar: ink with light text. */
+  --redact: #1d2128;
+  --redact-fg: #f1f3f5;
 
   /* Category families: secrets (warm), identity (violet), network (blue), ids (teal). */
   --cat-secret: #b45309;
@@ -52,6 +55,8 @@
     --danger-soft: #3d1a17;
     --ok: #4ccf82;
     --focus: #6b9cff;
+    --redact: #d9dde3;
+    --redact-fg: #15181d;
 
     --cat-secret: #fbbf24;
     --cat-secret-bg: #3b2c0c;
@@ -99,11 +104,23 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 32px;
+  padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn:focus-visible,
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .btn:hover {
   background: var(--surface-2);
@@ -112,7 +129,7 @@ textarea {
   background: var(--primary-bg);
   border-color: var(--primary-bg);
   color: var(--primary-fg);
-  font-weight: 600;
+  font-weight: 500;
 }
 .btn.primary:hover {
   background: var(--primary-bg-hover);
@@ -238,7 +255,8 @@ kbd {
   text-decoration: underline;
 }
 .btn.small {
-  padding: 3px 9px;
+  height: 28px;
+  padding: 0 10px;
   font-size: 12px;
 }
 input.text,

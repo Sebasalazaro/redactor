@@ -3,22 +3,19 @@
   import { onMount, tick } from "svelte";
   import { api, type AppSettings, type Config, type Engagement, type Status } from "../lib/api";
   import { Autosave, COMMIT_DRAFTS } from "../lib/autosave.svelte";
-  import Playground from "./components/Playground.svelte";
-  import Compare from "./pages/Compare.svelte";
-  import Engagements from "./pages/Engagements.svelte";
-  import GlobalRules from "./pages/GlobalRules.svelte";
-  import Overview from "./pages/Overview.svelte";
-  import Restore from "./pages/Restore.svelte";
+  import Icon, { type IconName } from "../lib/Icon.svelte";
+  import Home from "./pages/Home.svelte";
   import Settings from "./pages/Settings.svelte";
+  import Terms from "./pages/Terms.svelte";
+  import Tools from "./pages/Tools.svelte";
 
-  type Section = "overview" | "restore" | "compare" | "engagements" | "global" | "playground" | "settings";
+  type Section = "home" | "terms" | "tools" | "settings";
 
-  let section = $state<Section>("overview");
+  let section = $state<Section>("home");
   let status = $state<Status | null>(null);
   let settings = $state<AppSettings | null>(null);
   let global = $state<Config | null>(null);
   let engagements = $state<Engagement[]>([]);
-  let editing = $state<string | null>(null);
 
   const autosave = new Autosave();
   const active = $derived(engagements.find((e) => e.id === settings?.active_engagement) ?? null);
@@ -65,13 +62,6 @@
   async function created(id: string, makeActive: boolean) {
     await refreshEngagements();
     if (makeActive) await activate(id);
-    editing = id;
-    section = "engagements";
-  }
-
-  function navigate(to: Section, engagement?: string) {
-    section = to;
-    if (to === "engagements") editing = engagement ?? null;
   }
 
   /** Saves everything still pending. */
@@ -123,14 +113,11 @@
     };
   });
 
-  const NAV: { id: Section; label: string }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "restore", label: "Restore" },
-    { id: "compare", label: "Compare" },
-    { id: "engagements", label: "Engagements" },
-    { id: "global", label: "Global rules" },
-    { id: "playground", label: "Playground" },
-    { id: "settings", label: "Settings" },
+  const NAV: { id: Section; label: string; icon: IconName }[] = [
+    { id: "home", label: "Home", icon: "home" },
+    { id: "terms", label: "Terms", icon: "terms" },
+    { id: "tools", label: "Tools", icon: "tools" },
+    { id: "settings", label: "Settings", icon: "settings" },
   ];
 </script>
 
@@ -142,11 +129,14 @@
     </div>
 
     {#each NAV as item (item.id)}
-      <button class="nav" class:active={section === item.id} onclick={() => navigate(item.id)}>
+      <button
+        class="nav"
+        class:active={section === item.id}
+        aria-current={section === item.id ? "page" : undefined}
+        onclick={() => (section = item.id)}
+      >
+        <Icon name={item.icon} />
         {item.label}
-        {#if item.id === "engagements" && engagements.length}
-          <span class="count">{engagements.length}</span>
-        {/if}
       </button>
     {/each}
 
@@ -162,50 +152,36 @@
           Changes save automatically
         {/if}
       </div>
-      {#if status}
-        <div class="config" title="Config folder, shared with the redactor CLI">
-          {status.config_dir.replace(/^\/Users\/[^/]+/, "~")}
-        </div>
-      {/if}
+      {#if status}<div class="version">redactor {status.version}</div>{/if}
     </div>
   </nav>
 
-  <main class:fit={section === "overview"}>
+  <main class:fit={section === "home"}>
     {#if status?.error}
       <div class="banner">Configuration error: {status.error}</div>
     {/if}
 
     {#if settings && global}
-      {#if section === "overview"}
-        <Overview
+      {#if section === "home"}
+        <Home
           {settings}
           {global}
           {engagements}
-          onnavigate={navigate}
-          onactivate={activate}
-          oncreated={created}
+          onterms={() => (section = "terms")}
+          onsettings={() => (section = "settings")}
         />
-      {:else if section === "restore"}
-        <Restore {settings} profileName={active?.name ?? "the global profile"} />
-      {:else if section === "compare"}
-        <Compare profileName={active?.name ?? "the global profile"} />
-      {:else if section === "engagements"}
-        <Engagements
+      {:else if section === "terms"}
+        <Terms
           {settings}
-          {global}
+          bind:global
           {engagements}
-          bind:editing
           {autosave}
           onactivate={activate}
           oncreated={created}
           onchanged={refreshEngagements}
         />
-      {:else if section === "global"}
-        <GlobalRules bind:global {engagements} />
-      {:else if section === "playground"}
-        <h2>Playground</h2>
-        <p class="muted">Profile: {active?.name ?? "global only"}</p>
-        <Playground />
+      {:else if section === "tools"}
+        <Tools {settings} profileName={active?.name ?? "all engagements"} />
       {:else if section === "settings"}
         <Settings onquit={quit} bind:settings {status} />
       {/if}
@@ -232,14 +208,14 @@
 <style>
   .layout {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: 200px 1fr;
     height: 100%;
   }
   nav {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 16px 10px;
+    padding: 16px 8px;
     border-right: 1px solid var(--border);
     background: var(--surface);
     overflow: auto;
@@ -248,8 +224,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 8px 14px;
-    font-weight: 700;
+    margin: 0 10px 16px;
+    font-weight: 600;
     font-size: 15px;
   }
   .logo {
@@ -273,30 +249,31 @@
   }
   .nav {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 7px 10px;
+    gap: 10px;
+    height: 34px;
+    padding: 0 10px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     background: none;
+    color: var(--muted);
+    font: inherit;
     text-align: left;
     cursor: pointer;
+  }
+  .nav:hover {
+    color: var(--text);
   }
   .nav:hover {
     background: var(--surface-2);
   }
   .nav.active {
-    background: var(--accent-soft);
-    color: var(--accent-strong);
-    font-weight: 600;
-  }
-  .count {
-    padding: 0 7px;
-    border-radius: 999px;
     background: var(--surface-2);
-    color: var(--muted);
-    font-size: 11px;
+    color: var(--text);
     font-weight: 500;
+  }
+  .nav.active :global(.icon) {
+    color: var(--accent);
   }
   .footer {
     margin-top: auto;
@@ -308,10 +285,9 @@
   .save-state {
     color: var(--muted);
   }
-  .config {
+  .version {
     color: var(--muted);
-    font: 11px var(--mono);
-    overflow-wrap: anywhere;
+    font-size: 11px;
   }
   .save-state.bad {
     color: var(--danger);
@@ -324,10 +300,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-  main > h2 {
-    margin: 0 0 4px;
-    font-size: 20px;
   }
   .overlay {
     position: fixed;

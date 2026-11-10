@@ -84,7 +84,6 @@
 
 <header>
   <div>
-    <h2>Compare</h2>
     <p class="muted">
       Compare two Burp site map exports of different roles, using the rules of
       <strong>{profileName}</strong>. Nothing is sent anywhere: this only looks at what each role
@@ -236,10 +235,6 @@
 {/if}
 
 <style>
-  h2 {
-    margin: 0 0 4px;
-    font-size: 20px;
-  }
   header p {
     margin: 0 0 14px;
     max-width: 640px;

@@ -1,10 +1,9 @@
 <script lang="ts">
-  // Shared editor for the global config and engagement profiles.
+  // Rules beyond plain words, for the global config or an engagement.
   import { DEFAULT_MASKING, type Config } from "../../lib/api";
   import ListField from "./ListField.svelte";
   import MaskingField from "./MaskingField.svelte";
-  import TermsField from "./TermsField.svelte";
-
+  
   let { config = $bindable(), scope }: { config: Config; scope: "global" | "engagement" } = $props();
 
   function toggleMasking(on: boolean) {
@@ -12,28 +11,6 @@
   }
 </script>
 
-{#if scope === "global"}
-  <ListField
-    label="Client names"
-    help="Replaced by [CLIENT] in any spelling: Globex Bank, globex-bank, GlobexBank…"
-    placeholder="Globex Bank"
-    bind:values={config.client}
-  />
-{/if}
-
-<ListField
-  label="Hosts"
-  help="Internal names that are not FQDNs (FQDNs are detected automatically)."
-  placeholder="srv-db01"
-  bind:values={config.hosts}
-/>
-<ListField
-  label="Users"
-  help="Test accounts and people, partially masked."
-  placeholder="qa.tester01"
-  bind:values={config.users}
-/>
-<TermsField bind:terms={config.terms} />
 <ListField
   label="Sensitive headers"
   help="Extra headers whose values are secrets (Authorization, Cookie and ~30 others are built in)."
