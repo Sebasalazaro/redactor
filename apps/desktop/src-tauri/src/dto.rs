@@ -61,6 +61,8 @@ pub struct StatusDto {
     /// Seconds since the hotkey was last received, if it was.
     pub hotkey_last_press_secs: Option<u64>,
     pub log_file: Option<String>,
+    /// The app version, shown in the dashboard.
+    pub version: &'static str,
 }
 
 #[derive(Debug, Serialize)]
