@@ -299,6 +299,7 @@ pub fn get_status(state: State<AppState>) -> StatusDto {
         hotkey_active: state.hotkey_active(),
         hotkey_last_press_secs: state.last_hotkey_secs(),
         log_file: crate::log::path().map(|p| p.display().to_string()),
+        version: env!("CARGO_PKG_VERSION"),
     }
 }
 
