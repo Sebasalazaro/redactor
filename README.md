@@ -83,7 +83,7 @@ token belongs to the account being modified.
   suite asserts that none of them survive redaction.
 - **Reversible mode.** What you share is remembered in an encrypted vault
   per engagement (AES-256-GCM, key in the OS keychain), so an LLM's answer can
-  be turned back into real values: paste it into *Restore* or run
+  be turned back into real values: paste it into *Tools → Restore* or run
   `redactor --restore`. Ambiguous values are never guessed.
 - **Optional AI deep scan.** A local GLiNER model finds what patterns cannot
   (a person's or company's name in free text). It runs on demand, in a
@@ -200,7 +200,7 @@ sizes and JSON field names, but no values. Keep in mind:
   engine does not recognize stays as it is.
 - Only JSON bodies are compared field by field, and only Burp XML is read.
 
-The desktop app's *Compare* page runs the same comparison, with tables you can
+The desktop app's *Tools → Compare* runs the same comparison, with tables you can
 filter and buttons to copy or save the report.
 
 ## Configuration
