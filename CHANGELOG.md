@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Desktop: a simpler dashboard in four sections with icons, Home, Terms,
+  Tools and Settings. *Terms* is one list of hidden words, each with what it
+  becomes, with one-click replacements (`[CLIENT]`, `[APP]`, `[SYSTEM]`,
+  `[HOST]`, `[USER]`, `[REDACTED]`) and the active engagement or all of them
+  as the target. Restore, Playground and Compare moved under *Tools*, memory
+  use under *Settings*.
+
+### Added
+- Desktop: the app version is shown in the sidebar and in Settings.
+
 ## [0.2.1] - 2026-11-09
 
 ### Fixed

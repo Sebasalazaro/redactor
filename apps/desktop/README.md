@@ -34,16 +34,17 @@ contents), which is the place to look if the hotkey misbehaves.
   a native dialog and read in Rust, so the webview only sees file names.
 - **Menu bar:** redact now, restore, open the dashboard, switch the active
   engagement.
-- **Dashboard:**
-  - *Overview:* the last redaction (copy it again or forget it), the active
-    profile, live memory use with a *Free memory* button, session stats and a
-    summary of every section.
-  - *Engagements:* create one from any name (`Globex Q3 — Web app` is stored
-    as `globex-q3-web.toml`), switch from the sidebar, and see the
-    **effective rules**: what comes from the global config and what from the
-    engagement.
-  - *Global rules*, *Playground* and *Settings* (hotkey, review mode,
-    privacy and memory options). Every change is saved automatically.
+- **Dashboard,** four sections:
+  - *Home:* redact the clipboard, the last redaction (copy it again or forget
+    it) and how many words the active profile hides.
+  - *Terms:* type a word and what it becomes (`[CLIENT]`, `[APP]`,
+    `[SYSTEM]` and others are one click away), for the active engagement or
+    for all of them. Engagements are created, switched and deleted here;
+    sensitive headers, keys, allowed domains and masking ratios sit under
+    *Advanced rules*.
+  - *Tools:* Restore, Playground and Compare.
+  - *Settings:* hotkey, review mode, privacy, memory use and the app version.
+    Every change is saved automatically.
 - **Shares its config with the CLI** (`~/.config/redactor`, or
   `%USERPROFILE%\.config\redactor` on Windows), so both apply the same rules.
 
@@ -118,7 +119,7 @@ apps/desktop/
 │   ├── lib/api.ts                # typed wrappers for the Rust commands
 │   ├── lib/theme.css             # design tokens (light and dark)
 │   ├── review/Review.svelte      # the popup
-│   └── dashboard/                # settings, engagements, playground
+│   └── dashboard/                # home, terms, tools, settings
 └── src-tauri/src/
     ├── main.rs                   # builder, plugins, window lifecycle
     ├── flow.rs                   # clipboard → redact → review → clipboard
