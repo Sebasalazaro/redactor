@@ -4,6 +4,7 @@
 //! findings; [`crate::redactor`] later keeps the best non-overlapping set.
 //! Detectors never rewrite text themselves.
 
+mod code;
 mod http;
 mod keys;
 mod patterns;
@@ -68,6 +69,7 @@ pub(crate) fn scan(r: &Redactor, text: &str, depth: usize) -> Vec<Finding> {
     patterns::detect(&mut scan);
     http::detect(&mut scan);
     keys::detect(&mut scan);
+    code::detect(&mut scan);
     dictionary(&mut scan);
     scan.out
 }

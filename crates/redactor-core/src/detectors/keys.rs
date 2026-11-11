@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::{Scan, http};
+use super::{Scan, code, http};
 use crate::finding::Category;
 use crate::redactor::normalize_key;
 
@@ -164,6 +164,8 @@ pub(super) fn detect(scan: &mut Scan) {
             http::header_value(scan, &key.to_ascii_lowercase(), quote.end(), end);
         } else if let Some(class) = classify(scan, key, false) {
             value(scan, class, quote.end(), end);
+        } else if code::is_key_name(&normalize_key(key), &text[quote.end()..end]) {
+            scan.token(quote.end(), end);
         }
     }
 
@@ -196,6 +198,10 @@ pub(super) fn detect(scan: &mut Scan) {
 
     for caps in PARAM.captures_iter(text) {
         let v = caps.name("value").unwrap();
+        // `sig=crypto.createHmac(…)` in code is an assignment, not a parameter.
+        if v.as_str().contains('(') {
+            continue;
+        }
         if let Some(class) = classify(scan, &caps["key"], true) {
             value(scan, class, v.start(), v.end());
         }
