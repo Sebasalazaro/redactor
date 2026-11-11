@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
 ### Changed
 - Desktop: a simpler dashboard in four sections with icons, Home, Terms,
   Tools and Settings. *Terms* is one list of hidden words, each with what it
