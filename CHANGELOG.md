@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Secrets in source code, mostly front-end JavaScript: literals passed to
+  HMAC, signing and decoding calls (`hmac.create(Base64.decode("…"))`,
+  `createHmac("sha256", "…")`, `atob("…")`, `CryptoJS.enc.Utf8.parse("…")`),
+  literals assigned to secret-like names (`appSecret`, `apiKey`,
+  `signingKey`, `*Key` with a token-like value) and quoted literals that look
+  random (24+ Base64 characters with high entropy; hex hashes, identifiers
+  and paths are left alone).
+- `X-Ca-Key` and `X-Ca-Signature` (API gateway request signing) are
+  sensitive headers.
+
+### Fixed
+- `sig=crypto.createHmac(…)` in code was masked as if it were a `sig` query
+  parameter, breaking the line.
+
 ## [0.3.0] - 2026-11-10
 
 ### Changed
