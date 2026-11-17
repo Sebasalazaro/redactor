@@ -129,6 +129,13 @@ jobs:
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
         working-directory: apps/desktop
+      # ort's copy-dylibs copies onnxruntime.dll into target/<profile>,
+      # its examples/ and deps/ without creating them; on a cold cache the
+      # Windows build fails with "The system cannot find the path specified".
+      - name: Create the dylib folders ort copies into
+        shell: bash
+        working-directory: .
+        run: mkdir -p target/release/examples target/release/deps
       - run: npx tauri build --bundles nsis -- --locked
         working-directory: apps/desktop
       - name: Package
