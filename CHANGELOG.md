@@ -20,6 +20,10 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 - `sig=crypto.createHmac(…)` in code was masked as if it were a `sig` query
   parameter, breaking the line.
+- Identifiers and secrets holding configured terms (`client_id=globex-wavepay-web`,
+  `"appId": "GLOBEXWAVEPAY"`, a `client_secret` starting with the client's
+  name) left the terms visible, whole or as the visible prefix. Every term
+  is now replaced before the rest is masked.
 
 ## [0.3.0] - 2026-11-10
 
