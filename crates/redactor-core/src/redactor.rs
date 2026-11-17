@@ -189,10 +189,14 @@ impl Redactor {
     /// Masks `value` as a secret with this policy's ratio. Used for values
     /// the user marks by hand.
     pub fn mask_secret(&self, value: &str) -> String {
-        let masked = mask::secret(value, self.masking.secret_keep);
+        // Terms are replaced before masking: the visible prefix of a masked
+        // secret could otherwise show part of one (`blackwo…[len=26]`).
+        let keep = self.masking.secret_keep;
+        if self.dict.find(value).is_empty() {
+            return mask::secret(value, keep);
+        }
         self.dict
-            .replace_terms(&masked, self.masking.pii_keep)
-            .unwrap_or(masked)
+            .mask_around_terms(value, self.masking.pii_keep, |s| mask::secret(s, keep))
     }
 
     /// Masks personal data with this policy's ratio (client names become
@@ -203,8 +207,12 @@ impl Redactor {
             .mask_around_terms(value, keep, |s| mask::keep_head(s, keep))
     }
 
+    /// Identifiers often embed names (`clientId: "globex-wavepay-web"`), so
+    /// configured terms are replaced first and the rest is cut.
     pub(crate) fn mask_id(&self, value: &str) -> String {
-        mask::cut_tail(value, self.masking.id_cut)
+        let cut = self.masking.id_cut;
+        self.dict
+            .mask_around_terms(value, self.masking.pii_keep, |s| mask::cut_tail(s, cut))
     }
 
     pub(crate) fn mask_email(&self, email: &str) -> String {
@@ -383,6 +391,40 @@ mod tests {
         );
         assert_eq!(r.mask_host("srv-db01"), "sr*-db**");
         assert_eq!(r.mask_host("fonts.googleapis.com"), "fonts.googleapis.com");
+    }
+
+    /// Ids and secrets holding several terms: every term is replaced and no
+    /// part of one stays visible.
+    #[test]
+    fn replaces_every_term_inside_ids_and_secrets() {
+        let r = Redactor::new(&Config {
+            client: vec!["Blackwood".into()],
+            terms: vec![crate::config::CustomTerm {
+                value: "Wavepay".into(),
+                replacement: Some("[APP]".into()),
+            }],
+            ..Default::default()
+        });
+        let out = r
+            .redact(concat!(
+                "POST /oauth/token?client_id=blackwood-wavepay-web HTTP/1.1
+",
+                "Host: api.example.net
+
+",
+                r#"{"clientId":"blackwood_wavepay_android","client_secret":"blackwoodWavepaySecret2024","#,
+                r#""appId":"BLACKWOODWAVEPAY"}"#,
+            ))
+            .output;
+        for leak in ["blackw", "wavep", "BLACKW", "WAVEP", "Wavep"] {
+            assert!(
+                !out.contains(leak),
+                "{leak} visible in:
+{out}"
+            );
+        }
+        assert!(out.contains("client_id=[CLIENT]-[APP]-"), "{out}");
+        assert!(out.contains(r#""appId":"[CLIENT][APP]""#), "{out}");
     }
 
     /// A global client name and an engagement term in the same hostname:
