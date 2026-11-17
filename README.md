@@ -76,6 +76,7 @@ token belongs to the account being modified.
   | IPv4 / IPv6 | `10.12.4.21` → `10.12.*.*`, `2001:db8::42` → `2001::*` | keeps internal/external hint |
   | Cards | `4111 **** **** 1111` | Luhn-validated |
   | Private keys, vendor tokens | AWS, GitHub, GitLab, Stripe, Slack, Google... | always |
+  | Secrets in code | `hmac.create(Base64.decode("…"))`, `appSecret = "…"`, `atob("…")` | crypto calls, secret-like names, random-looking literals |
 
 - **Global config + per-engagement profiles.** The client's name lives in one
   place, while hosts, test users and device names change per test.

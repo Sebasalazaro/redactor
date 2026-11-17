@@ -31,6 +31,8 @@ const SENSITIVE_HEADERS: &[&str] = &[
     "x-amz-security-token",
     "x-api-key",
     "x-auth-token",
+    "x-ca-key",
+    "x-ca-signature",
     "x-client-secret",
     "x-csrf-token",
     "x-csrftoken",
