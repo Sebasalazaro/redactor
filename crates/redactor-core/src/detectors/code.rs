@@ -187,7 +187,10 @@ fn class_changes(bytes: &[u8]) -> f64 {
         b'0'..=b'9' => 2,
         _ => 3,
     };
-    let changes = bytes.windows(2).filter(|w| kind(&w[0]) != kind(&w[1])).count();
+    let changes = bytes
+        .windows(2)
+        .filter(|w| kind(&w[0]) != kind(&w[1]))
+        .count();
     changes as f64 / (bytes.len() - 1) as f64
 }
 
