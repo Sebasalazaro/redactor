@@ -147,12 +147,13 @@ jobs:
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
         working-directory: apps/desktop
-      # ort's copy-dylibs copies DLLs into target/<profile>, examples/ and
-      # deps/ without creating them.
+      # ort's copy-dylibs copies DLLs into examples/ and deps/ without
+      # creating them, and with Cargo's newer build-dir layout it aims one
+      # level too deep, at target/<profile>/build (pykeio/ort#619).
       - name: Create the dylib folders ort copies into
         shell: bash
         working-directory: .
-        run: mkdir -p target/release/examples target/release/deps
+        run: mkdir -p target/release/{,build/}{examples,deps}
       - run: npx tauri build --bundles nsis -- --locked
         working-directory: apps/desktop
       - name: Package

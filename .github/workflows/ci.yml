@@ -38,12 +38,13 @@ jobs:
           echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
           py=$(command -v python3 || command -v python)
           "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
-      # ort's copy-dylibs copies DLLs into target/<profile>, examples/ and
-      # deps/ without creating them.
+      # ort's copy-dylibs copies DLLs into examples/ and deps/ without
+      # creating them, and with Cargo's newer build-dir layout it aims one
+      # level too deep, at target/<profile>/build (pykeio/ort#619).
       - name: Create the dylib folders ort copies into
         shell: bash
         working-directory: .
-        run: mkdir -p target/debug/examples target/debug/deps
+        run: mkdir -p target/debug/{,build/}{examples,deps}
       # Default members: redactor-core, redactor-cli and redactor-ner.
       - run: cargo test --all-targets
       - run: cargo test --doc
@@ -110,12 +111,13 @@ jobs:
           echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
           py=$(command -v python3 || command -v python)
           "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
-      # ort's copy-dylibs copies DLLs into target/<profile>, examples/ and
-      # deps/ without creating them.
+      # ort's copy-dylibs copies DLLs into examples/ and deps/ without
+      # creating them, and with Cargo's newer build-dir layout it aims one
+      # level too deep, at target/<profile>/build (pykeio/ort#619).
       - name: Create the dylib folders ort copies into
         shell: bash
         working-directory: .
-        run: mkdir -p target/debug/examples target/debug/deps
+        run: mkdir -p target/debug/{,build/}{examples,deps}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
