@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-21
+
 ### Added
 - Secrets in source code, mostly front-end JavaScript: literals passed to
   HMAC, signing and decoding calls (`hmac.create(Base64.decode("…"))`,
