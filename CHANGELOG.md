@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-21
+
 ### Added
 - Desktop: redact files from Home. Drop them on the window or choose them;
   each one is redacted with the active profile and, once you save, written
