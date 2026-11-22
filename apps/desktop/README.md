@@ -36,7 +36,9 @@ contents), which is the place to look if the hotkey misbehaves.
   engagement.
 - **Dashboard,** four sections:
   - *Home:* redact the clipboard, the last redaction (copy it again or forget
-    it) and how many words the active profile hides.
+    it), how many words the active profile hides, and *Files*: drop or choose
+    text files (JSON, Postman collections, TXT, logs...) to get a redacted
+    copy of each, `<name>.redacted.<ext>`, next to the original.
   - *Terms:* type a word and what it becomes (`[CLIENT]`, `[APP]`,
     `[SYSTEM]` and others are one click away), for the active engagement or
     for all of them. Engagements are created, switched and deleted here;

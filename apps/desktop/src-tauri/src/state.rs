@@ -13,6 +13,7 @@ use redactor_core::{Category, InputFormat, Redaction, Redactor, Store};
 
 use crate::ai::Ai;
 use crate::compare::Comparison;
+use crate::files::Files;
 use crate::memory::{MemoryDto, Meter};
 use crate::settings::AppSettings;
 use crate::vault::{self, Vaults};
@@ -67,6 +68,7 @@ pub struct AppState {
     pub ai: Ai,
     pub vaults: Vaults,
     pub comparison: Mutex<Comparison>,
+    pub files: Mutex<Files>,
     settings: Mutex<AppSettings>,
     redactor: Mutex<Arc<Redactor>>,
     /// Redaction waiting in the review popup.
@@ -101,6 +103,7 @@ impl AppState {
             ai: Ai::new(&store),
             vaults: Vaults::default(),
             comparison: Mutex::default(),
+            files: Mutex::default(),
             store,
             settings: Mutex::new(settings),
             redactor: Mutex::new(Arc::new(Redactor::new(&Default::default()))),
@@ -157,6 +160,10 @@ impl AppState {
 
     pub fn comparison(&self) -> MutexGuard<'_, Comparison> {
         lock(&self.comparison)
+    }
+
+    pub fn files(&self) -> MutexGuard<'_, Files> {
+        lock(&self.files)
     }
 
     pub fn error(&self) -> Option<String> {

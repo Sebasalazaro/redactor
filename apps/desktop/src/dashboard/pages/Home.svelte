@@ -12,6 +12,7 @@
   } from "../../lib/api";
   import { ago, format, hotkey } from "../../lib/format";
   import Icon from "../../lib/Icon.svelte";
+  import Files from "../components/Files.svelte";
 
   let {
     settings,
@@ -123,6 +124,8 @@
     </div>
   {/if}
 </section>
+
+<Files />
 
 <style>
   header {

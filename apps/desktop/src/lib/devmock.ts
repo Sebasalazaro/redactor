@@ -53,6 +53,54 @@ Host: [SYSTEM].api.[CLIENT].com
 Cookie: session=a7f3e9…[len=32]
 X-Forwarded-For: 203.0.*.*`;
 
+type MockFile = Record<string, unknown>;
+const MOCK_FILES: MockFile[] = [
+  {
+    id: 1,
+    name: "Globex Q3.postman_collection.json",
+    folder: "C:/Users/tester/Downloads",
+    status: "ready",
+    message: null,
+    output_name: "Globex Q3.postman_collection.redacted.json",
+    format: "postman",
+    values: 14,
+    categories: [
+      ["client", 6],
+      ["secret", 4],
+      ["id", 4],
+    ],
+    preview: `{
+  "info": { "name": "[CLIENT] Q3" },
+  "auth": { "bearer": "eyJhbGciOi…[len=180]" }
+}`,
+  },
+  {
+    id: 2,
+    name: "notes.txt",
+    folder: "C:/Users/tester/Downloads",
+    status: "ready",
+    message: null,
+    output_name: "notes.redacted.txt",
+    format: "text",
+    values: 2,
+    categories: [["custom", 2]],
+    preview: "Login with [USER] on [APP] staging",
+  },
+  {
+    id: 3,
+    name: "screenshot.png",
+    folder: "C:/Users/tester/Downloads",
+    status: "rejected",
+    message: "not a text file",
+    output_name: "screenshot.redacted.png",
+    format: null,
+    values: 0,
+    categories: [],
+    preview: null,
+  },
+];
+let mockFiles: MockFile[] = [];
+
 const handlers: Record<string, (a: Args) => unknown> = {
   get_status: () => ({
     config_dir: "C:\\Users\\tester\\.config\\redactor",
@@ -118,6 +166,12 @@ const handlers: Record<string, (a: Args) => unknown> = {
   }),
   vault_info: () => ({ profile: "globex-q3", entries: 12 }),
   restore_text: (a) => ({ parts: [{ kind: "plain", text: (a as { text: string }).text }] }),
+  get_files: () => mockFiles,
+  pick_files: () => (mockFiles = MOCK_FILES.map((f) => ({ ...f }))),
+  save_files: () =>
+    (mockFiles = mockFiles.map((f) => (f.status === "ready" ? { ...f, status: "saved", preview: null } : f))),
+  remove_file: (a) => (mockFiles = mockFiles.filter((f) => f.id !== (a as { id: number }).id)),
+  clear_files: () => (mockFiles = []),
   get_compare: () => ({ high_file: null, low_file: null, report: null }),
   free_memory: () => ({ released_bytes: 3e6, memory: {} }),
 };

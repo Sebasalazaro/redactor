@@ -149,6 +149,20 @@ export function normalizeConfig(raw: Partial<Config>): Config {
   };
 }
 
+export interface RedactedFile {
+  id: number;
+  name: string;
+  folder: string;
+  status: "ready" | "rejected" | "saved" | "failed";
+  message: string | null;
+  /** Name of the redacted copy, saved next to the original. */
+  output_name: string;
+  format: string | null;
+  values: number;
+  categories: [Category, number][];
+  preview: string | null;
+}
+
 export interface CompareSide {
   statuses: string;
   size: string;
@@ -196,6 +210,11 @@ export const api = {
   cancelReview: () => invoke<void>("cancel_review"),
   maskText: (text: string) => invoke<string>("mask_text", { text }),
   deepScan: (text: string) => invoke<AiEntity[]>("deep_scan", { text }),
+  getFiles: () => invoke<RedactedFile[]>("get_files"),
+  pickFiles: () => invoke<RedactedFile[]>("pick_files"),
+  saveFiles: () => invoke<RedactedFile[]>("save_files"),
+  removeFile: (id: number) => invoke<RedactedFile[]>("remove_file", { id }),
+  clearFiles: () => invoke<RedactedFile[]>("clear_files"),
   getCompare: () => invoke<Comparison>("get_compare"),
   pickCompareExport: (role: "high" | "low") => invoke<Comparison>("pick_compare_export", { role }),
   runCompare: (highLabel: string, lowLabel: string, includeBodies: string | null) =>

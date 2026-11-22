@@ -10,6 +10,7 @@ use crate::compare::{self, ComparisonDto};
 use crate::dto::{
     EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto, VaultDto,
 };
+use crate::files::FileDto;
 use crate::flow::{self, DASHBOARD, REVIEW};
 use crate::memory;
 use crate::settings::AppSettings;
@@ -171,6 +172,7 @@ pub fn free_memory(app: AppHandle, state: State<AppState>) -> FreedDto {
     state.ai.unload();
     state.vaults.unload();
     state.comparison().clear();
+    state.files().clear();
     if let Some(review) = app.get_webview_window(REVIEW)
         && !review.is_visible().unwrap_or(true)
     {
@@ -214,6 +216,64 @@ pub async fn pick_compare_export(app: AppHandle, role: String) -> CmdResult<Comp
     })
     .await
     .map_err(err)?
+}
+
+// Files
+
+#[tauri::command]
+pub fn get_files(state: State<AppState>) -> Vec<FileDto> {
+    state.files().dto()
+}
+
+/// Picks files in the native dialog and redacts them, without writing yet.
+#[tauri::command]
+pub async fn pick_files(app: AppHandle) -> CmdResult<Vec<FileDto>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("Choose files to redact")
+            .blocking_pick_files()
+            .unwrap_or_default();
+        let paths = picked
+            .into_iter()
+            .filter_map(|p| p.into_path().ok())
+            .collect::<Vec<_>>();
+        let state = app.state::<AppState>();
+        let redactor = state.redactor();
+        let mut files = state.files();
+        files.add(paths, &redactor);
+        Ok(files.dto())
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Writes `<name>.redacted.<ext>` next to every ready file.
+#[tauri::command]
+pub async fn save_files(app: AppHandle) -> CmdResult<Vec<FileDto>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let pairs = state.files().save();
+        flow::remember(&app, pairs);
+        Ok(state.files().dto())
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+pub fn remove_file(state: State<AppState>, id: u32) -> Vec<FileDto> {
+    let mut files = state.files();
+    files.remove(id);
+    files.dto()
+}
+
+#[tauri::command]
+pub fn clear_files(state: State<AppState>) -> Vec<FileDto> {
+    let mut files = state.files();
+    files.clear();
+    files.dto()
 }
 
 #[tauri::command]
