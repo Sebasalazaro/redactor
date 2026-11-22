@@ -86,6 +86,15 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      # pyke's CDN blocks GitHub's runners (pykeio/ort#672): take ONNX
+      # Runtime from this repo's mirror, checked against ort's pinned hash.
+      - name: Preload ONNX Runtime
+        shell: bash
+        working-directory: .
+        run: |
+          echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
+          py=$(command -v python3 || command -v python)
+          "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
@@ -122,6 +131,15 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      # pyke's CDN blocks GitHub's runners (pykeio/ort#672): take ONNX
+      # Runtime from this repo's mirror, checked against ort's pinned hash.
+      - name: Preload ONNX Runtime
+        shell: bash
+        working-directory: .
+        run: |
+          echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
+          py=$(command -v python3 || command -v python)
+          "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
@@ -129,9 +147,8 @@ jobs:
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
         working-directory: apps/desktop
-      # ort's copy-dylibs copies onnxruntime.dll into target/<profile>,
-      # its examples/ and deps/ without creating them; on a cold cache the
-      # Windows build fails with "The system cannot find the path specified".
+      # ort's copy-dylibs copies DLLs into target/<profile>, examples/ and
+      # deps/ without creating them.
       - name: Create the dylib folders ort copies into
         shell: bash
         working-directory: .

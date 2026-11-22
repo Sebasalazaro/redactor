@@ -29,9 +29,17 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      # ort's copy-dylibs copies onnxruntime.dll into target/<profile>,
-      # its examples/ and deps/ without creating them; on a cold cache the
-      # Windows build fails with "The system cannot find the path specified".
+      # pyke's CDN blocks GitHub's runners (pykeio/ort#672): take ONNX
+      # Runtime from this repo's mirror, checked against ort's pinned hash.
+      - name: Preload ONNX Runtime
+        shell: bash
+        working-directory: .
+        run: |
+          echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
+          py=$(command -v python3 || command -v python)
+          "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
+      # ort's copy-dylibs copies DLLs into target/<profile>, examples/ and
+      # deps/ without creating them.
       - name: Create the dylib folders ort copies into
         shell: bash
         working-directory: .
@@ -51,6 +59,15 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      # pyke's CDN blocks GitHub's runners (pykeio/ort#672): take ONNX
+      # Runtime from this repo's mirror, checked against ort's pinned hash.
+      - name: Preload ONNX Runtime
+        shell: bash
+        working-directory: .
+        run: |
+          echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
+          py=$(command -v python3 || command -v python)
+          "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets
 
@@ -84,9 +101,17 @@ jobs:
           toolchain: stable
           components: clippy
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      # ort's copy-dylibs copies onnxruntime.dll into target/<profile>,
-      # its examples/ and deps/ without creating them; on a cold cache the
-      # Windows build fails with "The system cannot find the path specified".
+      # pyke's CDN blocks GitHub's runners (pykeio/ort#672): take ONNX
+      # Runtime from this repo's mirror, checked against ort's pinned hash.
+      - name: Preload ONNX Runtime
+        shell: bash
+        working-directory: .
+        run: |
+          echo "ORT_CACHE_DIR=$RUNNER_TEMP/ort" >> "$GITHUB_ENV"
+          py=$(command -v python3 || command -v python)
+          "$py" -I scripts/ci/fetch-ort.py "$(rustc -vV | sed -n 's/^host: //p')" "$RUNNER_TEMP/ort"
+      # ort's copy-dylibs copies DLLs into target/<profile>, examples/ and
+      # deps/ without creating them.
       - name: Create the dylib folders ort copies into
         shell: bash
         working-directory: .
