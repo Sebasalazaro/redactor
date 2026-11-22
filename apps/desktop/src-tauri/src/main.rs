@@ -9,6 +9,7 @@ mod clipboard;
 mod commands;
 mod compare;
 mod dto;
+mod files;
 mod flow;
 mod log;
 mod memory;
@@ -118,6 +119,13 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // Files dropped on the dashboard: the paths stay in Rust.
+            if let WindowEvent::DragDrop(drop) = event
+                && window.label() == DASHBOARD
+            {
+                files::dropped(window.app_handle(), drop);
+                return;
+            }
             // The app lives in the menu bar: closing a window unloads it
             // (or hides it, if the user prefers faster reopening).
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -161,6 +169,11 @@ fn main() {
             commands::vault_info,
             commands::forget_vault,
             commands::copy_text,
+            commands::get_files,
+            commands::pick_files,
+            commands::save_files,
+            commands::remove_file,
+            commands::clear_files,
             commands::get_compare,
             commands::pick_compare_export,
             commands::run_compare,

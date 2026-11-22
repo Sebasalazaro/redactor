@@ -67,7 +67,7 @@ pub fn finish_review(app: &AppHandle, text: String, pairs: Vec<Pair>) -> Result<
 
 /// Adds what was just copied to the active profile's vault, off the calling
 /// thread: the first access may wait on a keychain prompt.
-fn remember(app: &AppHandle, pairs: Vec<Pair>) {
+pub fn remember(app: &AppHandle, pairs: Vec<Pair>) {
     if pairs.is_empty() || !app.state::<AppState>().settings().remember {
         return;
     }

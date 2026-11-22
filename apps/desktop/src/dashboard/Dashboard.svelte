@@ -107,6 +107,8 @@
       }),
       listen("close-requested", closeSafely),
       listen("close-notice", () => (closeNotice = true)),
+      // Files dropped anywhere in the window show up on Home.
+      listen("files-hover", () => (section = "home")),
     ];
     return () => {
       unlisteners.forEach((u) => u.then((f) => f()));

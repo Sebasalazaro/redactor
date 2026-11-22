@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Desktop: redact files from Home. Drop them on the window or choose them;
+  each one is redacted with the active profile and, once you save, written
+  next to the original as `<name>.redacted.<ext>` (`collection.json` ->
+  `collection.redacted.json`). Originals are never changed. Any UTF-8 text
+  file works (JSON, Postman collections, TXT, logs, HAR, CSV, YAML...); binary
+  files and files over 20 MB are refused, and a JSON file whose redacted
+  version would not be valid JSON is left alone. File paths stay in the Rust
+  side; the page only sees names.
+
 ## [0.4.0] - 2026-11-21
 
 ### Added
