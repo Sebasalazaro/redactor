@@ -249,7 +249,29 @@ pub async fn pick_files(app: AppHandle) -> CmdResult<Vec<FileDto>> {
     .map_err(err)?
 }
 
-/// Writes `<name>.redacted.<ext>` next to every ready file.
+/// Picks a folder in the native dialog and redacts every file in it,
+/// without writing yet.
+#[tauri::command]
+pub async fn pick_folder(app: AppHandle) -> CmdResult<Vec<FileDto>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("Choose a folder to redact")
+            .blocking_pick_folder();
+        let state = app.state::<AppState>();
+        let redactor = state.redactor();
+        let mut files = state.files();
+        if let Some(path) = picked.and_then(|p| p.into_path().ok()) {
+            files.add([path], &redactor);
+        }
+        Ok(files.dto())
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Writes every redacted copy: next to each file, or in `<folder>.redacted`.
 #[tauri::command]
 pub async fn save_files(app: AppHandle) -> CmdResult<Vec<FileDto>> {
     tauri::async_runtime::spawn_blocking(move || {

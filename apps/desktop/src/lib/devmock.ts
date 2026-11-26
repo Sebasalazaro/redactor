@@ -54,72 +54,65 @@ Cookie: session=a7f3e9…[len=32]
 X-Forwarded-For: 203.0.*.*`;
 
 type MockFile = Record<string, unknown>;
-const MOCK_FILES: MockFile[] = [
-  {
-    id: 1,
-    name: "Globex Q3.postman_collection.json",
-    folder: "C:/Users/tester/Downloads",
+
+const BASE = "C:/Users/tester/Documents/Clientes";
+let mockId = 0;
+
+/** A fictional entry for the files dialog. */
+function mock(source: string, segments: string[], values: number, extra: MockFile = {}): MockFile {
+  mockId += 1;
+  return {
+    id: mockId,
+    base: BASE,
+    segments,
+    source,
     status: "ready",
     message: null,
-    output_name: "Globex Q3.postman_collection.redacted.json",
-    format: "postman",
-    values: 14,
-    categories: [
-      ["client", 6],
-      ["secret", 4],
-      ["id", 4],
-    ],
-    preview: `{
-  "info": { "name": "[CLIENT] Q3" },
-  "auth": { "bearer": "eyJhbGciOi…[len=180]" }
-}`,
-  },
-  {
-    id: 2,
-    name: "notes.txt",
-    folder: "C:/Users/tester/Downloads",
-    status: "ready",
-    message: null,
-    output_name: "notes.redacted.txt",
-    format: "text",
-    values: 2,
-    categories: [["custom", 2]],
-    preview: "Login with [USER] on [APP] staging",
-  },
-  {
-    id: 4,
-    name: "Pagos noviembre.xlsx",
-    folder: "C:/Users/tester/Downloads",
-    status: "ready",
-    message: null,
-    output_name: "Pagos noviembre.redacted.xlsx",
+    format: "json",
+    values,
+    categories: values ? [["client", Math.ceil(values / 2)], ["secret", Math.floor(values / 2)]] : [],
+    preview: `{\n  "cliente": "[CLIENT]",\n  "token": "a7f3e9…[len=32]"\n}`,
+    has_text: false,
+    folder: false,
+    ...extra,
+  };
+}
+
+const mockFolder = (): MockFile[] => [
+  mock("Globex/2026/Globex_contrato.json", ["CLIENT.redacted", "2026", "CLIENT_contrato.json"], 6),
+  mock("Globex/2026/Pagos noviembre.xlsx", ["CLIENT.redacted", "2026", "Pagos noviembre.xlsx"], 12, {
     format: "xlsx",
-    values: 12,
+    has_text: true,
     categories: [
       ["pii", 7],
       ["client", 3],
       ["user", 2],
     ],
-    preview: `## Pagos [CLIENT]
-
-| Fecha | Proveedor | NIT | Valor |
-| --- | --- | --- | --- |
-| 2026-11-03 | Ferr****** L* Un*** | 90*.12*.45*-* | 1250000 |`,
-    has_text: true,
-  },
-  {
-    id: 3,
-    name: "screenshot.png",
-    folder: "C:/Users/tester/Downloads",
-    status: "rejected",
+    preview: `## Pagos [CLIENT]\n\n| Fecha | Proveedor | NIT | Valor |\n| --- | --- | --- | --- |\n| 2026-11-03 | Ferr****** L* Un*** | 90*.12*.45*-* | 1250000 |`,
+  }),
+  mock("Globex/2026/terceros.csv", ["CLIENT.redacted", "2026", "terceros.csv"], 4, { format: "csv" }),
+  mock("Globex/API.postman_collection.json", ["CLIENT.redacted", "API.postman_collection.json"], 14, {
+    format: "postman",
+  }),
+  mock("Globex/notas.txt", ["CLIENT.redacted", "notas.txt"], 2, {
+    format: "text",
+    preview: "Reunión con [CLIENT] el martes",
+  }),
+  mock("Globex/contrato firmado.pdf", ["CLIENT.redacted", "contrato firmado.pdf"], 0, {
+    status: "skipped",
     message: "not a text file",
-    output_name: "screenshot.redacted.png",
     format: null,
-    values: 0,
-    categories: [],
     preview: null,
-  },
+  }),
+  mock("Globex/.git", ["CLIENT.redacted", ".git"], 0, {
+    status: "skipped",
+    message: "folder not read (tool files)",
+    folder: true,
+    format: null,
+    preview: null,
+  }),
 ];
+
 let mockFiles: MockFile[] = [];
 
 const handlers: Record<string, (a: Args) => unknown> = {
@@ -188,7 +181,8 @@ const handlers: Record<string, (a: Args) => unknown> = {
   vault_info: () => ({ profile: "globex-q3", entries: 12 }),
   restore_text: (a) => ({ parts: [{ kind: "plain", text: (a as { text: string }).text }] }),
   get_files: () => mockFiles,
-  pick_files: () => (mockFiles = MOCK_FILES.map((f) => ({ ...f }))),
+  pick_files: () => (mockFiles = [...mockFiles, mock("Globex Q3.postman_collection.json", ["CLIENT Q3.postman_collection.redacted.json"], 9, { base: "C:/Users/tester/Downloads", format: "postman" })]),
+  pick_folder: () => (mockFiles = [...mockFiles, ...mockFolder()]),
   save_files: () =>
     (mockFiles = mockFiles.map((f) => (f.status === "ready" ? { ...f, status: "saved", preview: null } : f))),
   copy_file_text: () => null,

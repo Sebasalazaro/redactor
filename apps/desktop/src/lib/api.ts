@@ -151,18 +151,22 @@ export function normalizeConfig(raw: Partial<Config>): Config {
 
 export interface RedactedFile {
   id: number;
-  name: string;
-  folder: string;
-  status: "ready" | "rejected" | "saved" | "failed";
+  /** Where outputs land: the original's folder, or a dropped folder's parent. */
+  base: string;
+  /** The output below `base`, e.g. ["Cliente.redacted", "2026", "pagos.xlsx"]. */
+  segments: string[];
+  /** The original below `base`, e.g. "Cliente/2026/pagos.xlsx". */
+  source: string;
+  status: "ready" | "skipped" | "saved" | "failed";
   message: string | null;
-  /** Name of the redacted copy, saved next to the original. */
-  output_name: string;
   format: string | null;
   values: number;
   categories: [Category, number][];
   preview: string | null;
   /** A text version can be copied (Excel workbooks). */
   has_text: boolean;
+  /** A folder left out (.git, node_modules), not a file. */
+  folder: boolean;
 }
 
 export interface CompareSide {
@@ -214,6 +218,7 @@ export const api = {
   deepScan: (text: string) => invoke<AiEntity[]>("deep_scan", { text }),
   getFiles: () => invoke<RedactedFile[]>("get_files"),
   pickFiles: () => invoke<RedactedFile[]>("pick_files"),
+  pickFolder: () => invoke<RedactedFile[]>("pick_folder"),
   saveFiles: () => invoke<RedactedFile[]>("save_files"),
   copyFileText: (id: number) => invoke<void>("copy_file_text", { id }),
   removeFile: (id: number) => invoke<RedactedFile[]>("remove_file", { id }),
