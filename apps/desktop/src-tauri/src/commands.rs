@@ -262,6 +262,17 @@ pub async fn save_files(app: AppHandle) -> CmdResult<Vec<FileDto>> {
     .map_err(err)?
 }
 
+/// Copies a workbook's text version, for pasting into a chat.
+#[tauri::command]
+pub fn copy_file_text(app: AppHandle, id: u32) -> CmdResult<()> {
+    let text = app
+        .state::<AppState>()
+        .files()
+        .text(id)
+        .ok_or("this file has no text version")?;
+    clipboard::write(&app, text)
+}
+
 #[tauri::command]
 pub fn remove_file(state: State<AppState>, id: u32) -> Vec<FileDto> {
     let mut files = state.files();

@@ -161,6 +161,8 @@ export interface RedactedFile {
   values: number;
   categories: [Category, number][];
   preview: string | null;
+  /** A text version can be copied (Excel workbooks). */
+  has_text: boolean;
 }
 
 export interface CompareSide {
@@ -213,6 +215,7 @@ export const api = {
   getFiles: () => invoke<RedactedFile[]>("get_files"),
   pickFiles: () => invoke<RedactedFile[]>("pick_files"),
   saveFiles: () => invoke<RedactedFile[]>("save_files"),
+  copyFileText: (id: number) => invoke<void>("copy_file_text", { id }),
   removeFile: (id: number) => invoke<RedactedFile[]>("remove_file", { id }),
   clearFiles: () => invoke<RedactedFile[]>("clear_files"),
   getCompare: () => invoke<Comparison>("get_compare"),
