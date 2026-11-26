@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Excel workbooks (`.xlsx`) and CSV files are redacted as tables. Columns
+  whose header names people or companies (`Nombre`, `Cliente`, `Proveedor`,
+  `Razón social`, `Teléfono`...) or documents (`NIT`, `Cédula`, `Documento`...)
+  are masked whole, even below a title block; the names found there are also
+  hidden in every other cell, comment and sheet. Prices, formulas and styles
+  stay. In workbooks the author, last editor and company, comments and their
+  authors, pivot caches and chart text are redacted too, and sheets named
+  after the client are renamed with every reference to them. The desktop app
+  saves `<name>.redacted.xlsx` and can copy every sheet as a Markdown table
+  for a chat. Older formats (`.xls`, `.ods`) must be saved as `.xlsx` first.
+- Colombian NITs with a valid check digit (`900.123.456-8`) are masked
+  anywhere.
+
 ## [0.5.0] - 2026-11-21
 
 ### Added
