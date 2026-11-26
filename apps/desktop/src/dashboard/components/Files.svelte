@@ -12,6 +12,13 @@
   let hovering = $state(false);
   let busy = $state(false);
   let open = $state<number | null>(null);
+  let copied = $state<number | null>(null);
+
+  async function copyText(id: number) {
+    await api.copyFileText(id);
+    copied = id;
+    setTimeout(() => (copied = null), 1500);
+  }
 
   const ready = $derived(files.filter((f) => f.status === "ready"));
 
@@ -46,7 +53,7 @@
     <div class="drop">
       <Icon name="upload" size={18} />
       <p>
-        {hovering ? "Drop to redact" : "Drop JSON, TXT, Postman collections or any text file here"}
+        {hovering ? "Drop to redact" : "Drop Excel, CSV, JSON, Postman collections or any text file here"}
       </p>
       {#if !hovering}
         <button class="btn small" onclick={() => run(api.pickFiles)} disabled={busy}>Choose files</button>
@@ -74,6 +81,12 @@
             {/if}
           </span>
           <span class="actions">
+            {#if f.has_text}
+              <button class="btn small" onclick={() => copyText(f.id)} title="Every sheet as a table, to paste into a chat">
+                <Icon name={copied === f.id ? "check" : "copy"} size={14} />
+                {copied === f.id ? "Copied" : "Copy as text"}
+              </button>
+            {/if}
             {#if f.preview !== null}
               <button
                 class="icon-btn"

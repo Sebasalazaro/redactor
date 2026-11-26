@@ -87,6 +87,27 @@ const MOCK_FILES: MockFile[] = [
     preview: "Login with [USER] on [APP] staging",
   },
   {
+    id: 4,
+    name: "Pagos noviembre.xlsx",
+    folder: "C:/Users/tester/Downloads",
+    status: "ready",
+    message: null,
+    output_name: "Pagos noviembre.redacted.xlsx",
+    format: "xlsx",
+    values: 12,
+    categories: [
+      ["pii", 7],
+      ["client", 3],
+      ["user", 2],
+    ],
+    preview: `## Pagos [CLIENT]
+
+| Fecha | Proveedor | NIT | Valor |
+| --- | --- | --- | --- |
+| 2026-11-03 | Ferr****** L* Un*** | 90*.12*.45*-* | 1250000 |`,
+    has_text: true,
+  },
+  {
     id: 3,
     name: "screenshot.png",
     folder: "C:/Users/tester/Downloads",
@@ -170,6 +191,7 @@ const handlers: Record<string, (a: Args) => unknown> = {
   pick_files: () => (mockFiles = MOCK_FILES.map((f) => ({ ...f }))),
   save_files: () =>
     (mockFiles = mockFiles.map((f) => (f.status === "ready" ? { ...f, status: "saved", preview: null } : f))),
+  copy_file_text: () => null,
   remove_file: (a) => (mockFiles = mockFiles.filter((f) => f.id !== (a as { id: number }).id)),
   clear_files: () => (mockFiles = []),
   get_compare: () => ({ high_file: null, low_file: null, report: null }),

@@ -172,6 +172,7 @@ fn main() {
             commands::get_files,
             commands::pick_files,
             commands::save_files,
+            commands::copy_file_text,
             commands::remove_file,
             commands::clear_files,
             commands::get_compare,

@@ -37,8 +37,12 @@ contents), which is the place to look if the hotkey misbehaves.
 - **Dashboard,** four sections:
   - *Home:* redact the clipboard, the last redaction (copy it again or forget
     it), how many words the active profile hides, and *Files*: drop or choose
-    text files (JSON, Postman collections, TXT, logs...) to get a redacted
-    copy of each, `<name>.redacted.<ext>`, next to the original.
+    Excel workbooks, CSV or text files (JSON, Postman collections, TXT,
+    logs...) to get a redacted copy of each, `<name>.redacted.<ext>`, next to
+    the original. Excel and CSV are read as tables: columns titled like
+    people or documents (`Nombre`, `Proveedor`, `NIT`, `Cédula`...) are
+    masked whole, and *Copy as text* puts every sheet on the clipboard as a
+    Markdown table.
   - *Terms:* type a word and what it becomes (`[CLIENT]`, `[APP]`,
     `[SYSTEM]` and others are one click away), for the active engagement or
     for all of them. Engagements are created, switched and deleted here;

@@ -50,6 +50,8 @@ export function slugify(name: string): string {
   return slug || "engagement";
 }
 
+const FORMAT_NAMES: Record<string, string> = { xlsx: "Excel", csv: "CSV" };
+
 export function format(name: string): string {
-  return name.replaceAll("_", " ");
+  return FORMAT_NAMES[name] ?? name.replaceAll("_", " ");
 }
