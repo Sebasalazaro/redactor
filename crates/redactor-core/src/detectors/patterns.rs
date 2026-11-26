@@ -68,6 +68,12 @@ static DOMAIN: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
+/// NIT: `900.123.456-7`, `900123456-7`, `1.020.345.678 - 5`. Only kept when
+/// the check digit is right, so dates and phone numbers do not match.
+static NIT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b(?P<base>\d{1,3}(?:\.\d{3}){2,3}|\d{6,12})[ \t]?-[ \t]?(?P<dv>\d)\b").unwrap()
+});
+
 /// Numeric path segments: `/users/1042/orders`.
 static PATH_ID: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"/(?P<id>\d{2,})\b").unwrap());
 
@@ -135,6 +141,14 @@ pub(super) fn detect(scan: &mut Scan) {
         }
     }
 
+    for caps in NIT.captures_iter(text) {
+        let dv = caps["dv"].parse().unwrap_or(99);
+        if nit_valid(&caps["base"], dv) {
+            let m = caps.get(0).unwrap();
+            scan.push(m.start(), m.end(), Category::Pii, r.mask_pii(m.as_str()));
+        }
+    }
+
     for m in UUID.find_iter(text) {
         scan.push(m.start(), m.end(), Category::Uuid, r.mask_id(m.as_str()));
     }
@@ -168,6 +182,21 @@ pub(super) fn detect(scan: &mut Scan) {
             scan.push(id.start(), id.end(), Category::Id, r.mask_id(id.as_str()));
         }
     }
+}
+
+/// Colombian NIT with its check digit (DIAN modulo 11 weights).
+fn nit_valid(base: &str, dv: u32) -> bool {
+    const WEIGHTS: [u32; 15] = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+    let digits: Vec<u32> = base.chars().filter_map(|c| c.to_digit(10)).collect();
+    if digits.len() > WEIGHTS.len() || digits.iter().all(|&d| d == 0) {
+        return false;
+    }
+    let sum: u32 = digits.iter().rev().zip(WEIGHTS).map(|(d, w)| d * w).sum();
+    let check = match sum % 11 {
+        r @ (0 | 1) => r,
+        r => 11 - r,
+    };
+    check == dv
 }
 
 /// Filters version strings (`Chrome/120.0.0.0`, `1.2.3.4.5`) out of IPv4 matches.
@@ -211,6 +240,7 @@ fn continues_dotted(text: &str, end: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::nit_valid;
     use crate::{Category, Config, Redactor};
 
     fn ips(text: &str) -> Vec<String> {
@@ -222,6 +252,16 @@ mod tests {
             .filter(|f| f.category == Category::Ip)
             .map(|f| format!("{} -> {}", redaction.original(f), f.replacement))
             .collect()
+    }
+
+    #[test]
+    fn checks_nit_digits() {
+        // Check digits computed with the DIAN algorithm; values are fictional.
+        assert!(nit_valid("900123456", 8));
+        assert!(nit_valid("900.123.456", 8));
+        assert!(nit_valid("800197268", 4));
+        assert!(!nit_valid("900123456", 7));
+        assert!(!nit_valid("000000000", 0));
     }
 
     #[test]
