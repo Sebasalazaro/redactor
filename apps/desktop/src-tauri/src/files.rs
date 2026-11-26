@@ -1,13 +1,20 @@
-//! Redacting files: Postman collections, JSON, TXT, logs, HAR, CSV and
-//! Excel workbooks. CSV and Excel are read as tables: columns titled like
-//! people or documents are masked whole (see `redactor_core::table`).
+//! Redacting files and folders: Postman collections, JSON, TXT, logs, HAR,
+//! CSV and Excel workbooks. CSV and Excel are read as tables: columns titled
+//! like people or documents are masked whole (see `redactor_core::table`).
 //!
-//! Files come from the native picker or are dropped on the dashboard window;
-//! either way the paths are received here and never come from the webview,
-//! which only sees names and results. A file is redacted in memory first and
-//! written, when the user saves, as a new file next to the original:
-//! `collection.json` -> `collection.redacted.json`. The original is never
-//! written to.
+//! Files and folders come from the native pickers or are dropped on the
+//! dashboard window; either way the paths are received here and never come
+//! from the webview, which only sees names and results. Everything is
+//! redacted in memory first and written only when the user accepts:
+//!
+//! - a file gets a copy next to it: `collection.json` →
+//!   `collection.redacted.json`;
+//! - a folder gets a sister folder with the same tree: `Cliente/` →
+//!   `Cliente.redacted/`. Files that cannot be redacted (PDF, images,
+//!   binaries) are left out and listed.
+//!
+//! Names holding configured terms are redacted too (`Globex_contrato.json` →
+//! `CLIENT_contrato.json`). Originals are never written to.
 
 use std::fs;
 use std::io::Write;
@@ -25,6 +32,11 @@ use crate::vault::Pair;
 
 /// Larger files are refused: this is for collections and exports, not dumps.
 const MAX_BYTES: u64 = 20 * 1024 * 1024;
+/// A folder with more files than this, or more bytes, is refused whole.
+const MAX_FOLDER_FILES: usize = 5000;
+const MAX_FOLDER_BYTES: u64 = 500 * 1024 * 1024;
+/// Folders not worth reading: tool state, not documents.
+const SKIPPED_FOLDERS: &[&str] = &[".git", "node_modules", "__pycache__", ".venv", ".svn"];
 /// Characters of each redacted file shown in the page.
 const PREVIEW_CHARS: usize = 4000;
 const BOM: &str = "\u{feff}";
@@ -38,17 +50,30 @@ pub struct Files {
 #[derive(Debug)]
 struct Item {
     id: u32,
-    path: PathBuf,
+    source: PathBuf,
+    /// The folder the output lands in, and the output's path below it.
+    base: PathBuf,
+    segments: Vec<String>,
+    /// The source's path below `base`, for display.
+    source_label: String,
     state: ItemState,
+}
+
+impl Item {
+    fn target(&self) -> PathBuf {
+        self.segments
+            .iter()
+            .fold(self.base.clone(), |p, s| p.join(s))
+    }
 }
 
 #[derive(Debug)]
 enum ItemState {
     Ready(Box<Redacted>),
-    Rejected(String),
+    /// Left out: binary, unsupported, too large, or a folder not read.
+    Skipped(String),
     Saved {
         values: usize,
-        name: String,
         text: Option<String>,
     },
     Failed(String),
@@ -72,43 +97,125 @@ struct Redacted {
 #[derive(Debug, Serialize)]
 pub struct FileDto {
     pub id: u32,
-    pub name: String,
-    pub folder: String,
-    /// `ready`, `rejected`, `saved` or `failed`.
+    /// Where outputs land: the original's folder, or a dropped folder's parent.
+    pub base: String,
+    /// The output below `base`: `["Cliente.redacted", "2026", "pagos.xlsx"]`.
+    pub segments: Vec<String>,
+    /// The original below `base`: `Cliente/2026/pagos.xlsx`.
+    pub source: String,
+    /// `ready`, `skipped`, `saved` or `failed`.
     pub status: &'static str,
     pub message: Option<String>,
-    /// Name of the redacted copy: where it will go, or where it went.
-    pub output_name: String,
     pub format: Option<String>,
     pub values: usize,
     pub categories: Vec<(Category, usize)>,
     pub preview: Option<String>,
     /// A text version can be copied (workbooks).
     pub has_text: bool,
+    /// A folder left out (`.git`, `node_modules`), not a file.
+    pub folder: bool,
 }
 
 impl Files {
-    /// Reads and redacts each path. A path already in the list is redacted
-    /// again, so changed rules apply.
+    /// Reads and redacts files and whole folders. Adding a source again
+    /// redacts it again, so changed rules apply.
     pub fn add(&mut self, paths: impl IntoIterator<Item = PathBuf>, redactor: &Redactor) {
         for path in paths {
-            if path.is_dir() {
+            let Ok(meta) = fs::symlink_metadata(&path) else {
                 continue;
-            }
-            let state = match redact(&path, redactor) {
-                Ok(redacted) => ItemState::Ready(Box::new(redacted)),
-                Err(reason) => ItemState::Rejected(reason),
             };
-            if let Some(item) = self.items.iter_mut().find(|i| i.path == path) {
-                item.state = state;
+            if meta.is_dir() {
+                self.add_folder(&path, redactor);
+            } else if meta.is_file() {
+                let base = path.parent().map(Path::to_path_buf).unwrap_or_default();
+                let name = copy_name(redactor, &file_name(&path));
+                let label = file_name(&path);
+                self.upsert(path, base, vec![name], label, |p| redact(p, redactor));
+            }
+        }
+    }
+
+    fn add_folder(&mut self, dir: &Path, redactor: &Redactor) {
+        let base = dir.parent().map(Path::to_path_buf).unwrap_or_default();
+        let dir_name = file_name(dir);
+        let root = format!("{}.redacted", clean_name(redactor, &dir_name));
+
+        let mut found = Vec::new();
+        walk(dir, &mut Vec::new(), &mut found);
+        let files = found.iter().filter(|f| !f.skipped_folder).count();
+        let bytes: u64 = found.iter().map(|f| f.size).sum();
+        if files > MAX_FOLDER_FILES || bytes > MAX_FOLDER_BYTES {
+            let reason = format!(
+                "too large to redact at once ({files} files, {} MB; the limit is {MAX_FOLDER_FILES} files and {} MB)",
+                bytes / (1024 * 1024),
+                MAX_FOLDER_BYTES / (1024 * 1024)
+            );
+            self.upsert(dir.to_path_buf(), base, vec![root], dir_name, |_| {
+                Err(reason.clone())
+            });
+            return;
+        }
+
+        for f in found {
+            let mut segments = vec![root.clone()];
+            segments.extend(f.rel.iter().map(|part| clean_name(redactor, part)));
+            let label = std::iter::once(dir_name.as_str())
+                .chain(f.rel.iter().map(String::as_str))
+                .collect::<Vec<_>>()
+                .join("/");
+            if f.skipped_folder {
+                self.upsert(f.path, base.clone(), segments, label, |_| {
+                    Err("folder not read (tool files)".into())
+                });
             } else {
-                self.next_id += 1;
-                self.items.push(Item {
-                    id: self.next_id,
-                    path,
-                    state,
+                self.upsert(f.path, base.clone(), segments, label, |p| {
+                    redact(p, redactor)
                 });
             }
+        }
+    }
+
+    /// Adds or replaces the entry for `source`. Two sources that would land
+    /// on the same output get ` (2)`, ` (3)`... before the extension.
+    fn upsert(
+        &mut self,
+        source: PathBuf,
+        base: PathBuf,
+        mut segments: Vec<String>,
+        source_label: String,
+        redact: impl FnOnce(&Path) -> Result<Redacted, String>,
+    ) {
+        let state = match redact(&source) {
+            Ok(redacted) => ItemState::Ready(Box::new(redacted)),
+            Err(reason) => ItemState::Skipped(reason),
+        };
+        let taken = |segments: &[String], items: &[Item]| {
+            items
+                .iter()
+                .any(|i| i.source != source && i.base == base && i.segments == segments)
+        };
+        let mut n = 2;
+        let last = segments.len() - 1;
+        let original = segments[last].clone();
+        while taken(&segments, &self.items) {
+            segments[last] = numbered(&original, n);
+            n += 1;
+        }
+        if let Some(item) = self.items.iter_mut().find(|i| i.source == source) {
+            item.base = base;
+            item.segments = segments;
+            item.source_label = source_label;
+            item.state = state;
+        } else {
+            self.next_id += 1;
+            self.items.push(Item {
+                id: self.next_id,
+                source,
+                base,
+                segments,
+                source_label,
+                state,
+            });
         }
     }
 
@@ -120,30 +227,39 @@ impl Files {
         self.items.clear();
     }
 
-    /// Writes the redacted copy of every ready file. Returns the values to
-    /// remember in the vault.
+    /// Writes every ready entry, creating folders as needed. Returns the
+    /// values to remember in the vault.
     pub fn save(&mut self) -> Vec<Pair> {
         let mut pairs = Vec::new();
+        let mut saved = 0;
         for item in &mut self.items {
+            let target = item.target();
             let ItemState::Ready(redacted) = &mut item.state else {
                 continue;
             };
-            let target = redacted_path(&item.path);
-            item.state = match write_new(&target, &redacted.output) {
+            let result = if target == item.source {
+                Err("would overwrite the original".to_string())
+            } else {
+                target
+                    .parent()
+                    .map_or(Ok(()), fs::create_dir_all)
+                    .map_err(|e| format!("cannot create its folder: {e}"))
+                    .and_then(|()| write_new(&target, &redacted.output))
+            };
+            item.state = match result {
                 Ok(()) => {
+                    saved += 1;
                     pairs.append(&mut redacted.pairs);
-                    crate::log::info(format_args!(
-                        "saved a redacted copy ({} values)",
-                        redacted.values
-                    ));
                     ItemState::Saved {
                         values: redacted.values,
-                        name: file_name(&target),
                         text: redacted.text.take(),
                     }
                 }
                 Err(e) => ItemState::Failed(e),
             };
+        }
+        if saved > 0 {
+            crate::log::info(format_args!("saved {saved} redacted files"));
         }
         pairs
     }
@@ -165,24 +281,19 @@ impl Files {
 
 impl Item {
     fn dto(&self) -> FileDto {
-        let name = file_name(&self.path);
-        let folder = self
-            .path
-            .parent()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default();
         let mut dto = FileDto {
             id: self.id,
-            name,
-            folder,
+            base: self.base.display().to_string(),
+            segments: self.segments.clone(),
+            source: self.source_label.clone(),
             status: "ready",
             message: None,
-            output_name: file_name(&redacted_path(&self.path)),
             format: None,
             values: 0,
             categories: Vec::new(),
             preview: None,
             has_text: false,
+            folder: self.source.is_dir(),
         };
         match &self.state {
             ItemState::Ready(r) => {
@@ -192,14 +303,13 @@ impl Item {
                 dto.preview = Some(r.preview.chars().take(PREVIEW_CHARS).collect());
                 dto.has_text = r.text.is_some();
             }
-            ItemState::Rejected(reason) => {
-                dto.status = "rejected";
+            ItemState::Skipped(reason) => {
+                dto.status = "skipped";
                 dto.message = Some(reason.clone());
             }
-            ItemState::Saved { values, name, text } => {
+            ItemState::Saved { values, text } => {
                 dto.status = "saved";
                 dto.values = *values;
-                dto.output_name = name.clone();
                 dto.has_text = text.is_some();
             }
             ItemState::Failed(e) => {
@@ -208,6 +318,54 @@ impl Item {
             }
         }
         dto
+    }
+}
+
+/// A file or skipped folder found under a dropped folder.
+struct Found {
+    path: PathBuf,
+    /// Path components below the dropped folder.
+    rel: Vec<String>,
+    size: u64,
+    skipped_folder: bool,
+}
+
+/// Every file below `dir`, sorted by name. Symbolic links are not followed.
+fn walk(dir: &Path, rel: &mut Vec<String>, out: &mut Vec<Found>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut entries: Vec<_> = entries.flatten().collect();
+    entries.sort_by_key(|e| e.file_name().to_string_lossy().to_lowercase());
+    for entry in entries {
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if kind.is_symlink() {
+            continue;
+        }
+        rel.push(name.clone());
+        if kind.is_dir() {
+            if SKIPPED_FOLDERS.contains(&name.as_str()) {
+                out.push(Found {
+                    path: entry.path(),
+                    rel: rel.clone(),
+                    size: 0,
+                    skipped_folder: true,
+                });
+            } else {
+                walk(&entry.path(), rel, out);
+            }
+        } else if kind.is_file() {
+            out.push(Found {
+                path: entry.path(),
+                rel: rel.clone(),
+                size: entry.metadata().map(|m| m.len()).unwrap_or(0),
+                skipped_folder: false,
+            });
+        }
+        rel.pop();
     }
 }
 
@@ -352,23 +510,53 @@ fn file_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// `collection.json` -> `collection.redacted.json`, `notes` -> `notes.redacted`.
-/// Never the file itself, even when it is already a redacted copy.
-pub fn redacted_path(path: &Path) -> PathBuf {
-    let stem = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let name = match path.extension() {
-        Some(ext) => format!("{stem}.redacted.{}", ext.to_string_lossy()),
-        None => format!("{stem}.redacted"),
-    };
-    path.with_file_name(name)
+/// A file or folder name with configured terms replaced, safe on every
+/// system: `Globex_contrato.json` → `CLIENT_contrato.json`. Placeholders
+/// lose their brackets, and characters Windows forbids (`*` from partial
+/// masks among them) become `_`.
+fn clean_name(redactor: &Redactor, name: &str) -> String {
+    let replaced = redactor.replace_terms(name);
+    if replaced == name {
+        return name.to_string();
+    }
+    let cleaned: String = replaced
+        .chars()
+        .filter(|c| !matches!(c, '[' | ']'))
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect();
+    let cleaned = cleaned.trim_end_matches(['.', ' ']).trim();
+    if cleaned.is_empty() {
+        "redacted".into()
+    } else {
+        cleaned.to_string()
+    }
+}
+
+/// The name of a single file's copy: `collection.json` →
+/// `collection.redacted.json`, `notes` → `notes.redacted`.
+fn copy_name(redactor: &Redactor, name: &str) -> String {
+    let clean = clean_name(redactor, name);
+    match clean.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() => format!("{stem}.redacted.{ext}"),
+        _ => format!("{clean}.redacted"),
+    }
+}
+
+/// `pagos.xlsx` → `pagos (2).xlsx`.
+fn numbered(name: &str, n: u32) -> String {
+    match name.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() => format!("{stem} ({n}).{ext}"),
+        _ => format!("{name} ({n})"),
+    }
 }
 
 /// Writes to a temporary file next to the target, then renames it over the
 /// target, so a crash never leaves a half-written copy behind. An earlier
-/// redacted copy is replaced; the original file is never the target.
+/// redacted copy is replaced.
 fn write_new(path: &Path, content: &[u8]) -> Result<(), String> {
     let dir = path.parent().ok_or("no parent folder")?;
     let name = path.file_name().ok_or("no file name")?.to_string_lossy();
@@ -406,20 +594,25 @@ mod tests {
         dir
     }
 
+    fn write(path: &Path, content: impl AsRef<[u8]>) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, content).unwrap();
+    }
+
     #[test]
     fn saves_a_redacted_copy_next_to_the_original() {
         let dir = temp_dir("copy");
         let path = dir.join("Globex API.postman_collection.json");
         let original = "\u{feff}{\r\n  \"url\": \"https://api.globex.example/v1\",\r\n  \"token\": \"a7f3e9c1d5b2084f6e1a9c3d7b5f2e80\"\r\n}\r\n";
-        fs::write(&path, original).unwrap();
+        write(&path, original);
 
         let mut files = Files::default();
         files.add([path.clone()], &redactor());
         let dto = &files.dto()[0];
         assert_eq!(dto.status, "ready", "{:?}", dto.message);
         assert_eq!(
-            dto.output_name,
-            "Globex API.postman_collection.redacted.json"
+            dto.segments,
+            ["CLIENT API.postman_collection.redacted.json"]
         );
 
         let pairs = files.save();
@@ -427,14 +620,11 @@ mod tests {
         // The original is untouched; the copy keeps BOM and line endings.
         assert_eq!(fs::read_to_string(&path).unwrap(), original);
         let copy =
-            fs::read_to_string(dir.join("Globex API.postman_collection.redacted.json")).unwrap();
+            fs::read_to_string(dir.join("CLIENT API.postman_collection.redacted.json")).unwrap();
         assert!(copy.starts_with('\u{feff}'));
         assert!(copy.contains("\r\n"));
         assert!(!copy.to_lowercase().contains("globex"), "{copy}");
         assert!(!copy.contains("a7f3e9c1d5b2084f6e1a9c3d7b5f2e80"));
-        assert!(
-            serde_json::from_str::<serde_json::Value>(copy.trim_start_matches('\u{feff}')).is_ok()
-        );
         assert_eq!(files.dto()[0].status, "saved");
         assert_eq!(
             fs::read_dir(&dir).unwrap().count(),
@@ -445,34 +635,91 @@ mod tests {
     }
 
     #[test]
-    fn names_the_copy() {
+    fn redacts_a_folder_into_a_sister_folder() {
+        let dir = temp_dir("folder");
+        let src = dir.join("Globex docs");
+        write(
+            &src.join("2026").join("Globex_contrato.json"),
+            r#"{"cliente": "Globex", "valor": 1200}"#,
+        );
+        write(&src.join("notas.txt"), "Reunión con Globex el martes");
+        write(&src.join("foto.png"), b"\x89PNG\r\n\x1a\n\0\0");
+        write(&src.join(".git").join("config"), "[core]");
+
+        let mut files = Files::default();
+        files.add([src.clone()], &redactor());
+        let dtos = files.dto();
+        let by_source = |s: &str| dtos.iter().find(|d| d.source == s).unwrap();
+
+        let contract = by_source("Globex docs/2026/Globex_contrato.json");
+        assert_eq!(contract.status, "ready");
         assert_eq!(
-            redacted_path(Path::new("a/b.json")),
-            Path::new("a/b.redacted.json")
+            contract.segments,
+            ["CLIENT docs.redacted", "2026", "CLIENT_contrato.json"]
+        );
+        assert_eq!(by_source("Globex docs/foto.png").status, "skipped");
+        assert_eq!(by_source("Globex docs/.git").status, "skipped");
+        assert_eq!(
+            by_source("Globex docs/notas.txt").segments,
+            ["CLIENT docs.redacted", "notas.txt"]
+        );
+
+        files.save();
+        let out = dir.join("CLIENT docs.redacted");
+        let contract = fs::read_to_string(out.join("2026").join("CLIENT_contrato.json")).unwrap();
+        assert!(
+            !contract.contains("Globex") && contract.contains("1200"),
+            "{contract}"
         );
         assert_eq!(
-            redacted_path(Path::new("a/notes")),
-            Path::new("a/notes.redacted")
+            fs::read_to_string(out.join("notas.txt")).unwrap(),
+            "Reunión con [CLIENT] el martes"
         );
+        assert!(
+            !out.join("foto.png").exists(),
+            "skipped files are not copied"
+        );
+        assert!(!out.join(".git").exists());
+        // The original folder is as it was.
+        assert!(src.join("2026").join("Globex_contrato.json").exists());
         assert_eq!(
-            redacted_path(Path::new("a/b.redacted.json")),
-            Path::new("a/b.redacted.redacted.json")
+            fs::read_to_string(src.join("notas.txt")).unwrap(),
+            "Reunión con Globex el martes"
         );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn outputs_with_the_same_name_get_numbered() {
+        let dir = temp_dir("collide");
+        let src = dir.join("docs");
+        write(&src.join("Globex.txt"), "a");
+        write(&src.join("CLIENT.txt"), "b");
+        let mut files = Files::default();
+        files.add([src], &redactor());
+        let mut names: Vec<_> = files
+            .dto()
+            .into_iter()
+            .map(|d| d.segments[1].clone())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["CLIENT (2).txt", "CLIENT.txt"]);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
     fn refuses_binary_and_non_utf8_files() {
         let dir = temp_dir("binary");
         let png = dir.join("shot.png");
-        fs::write(&png, b"\x89PNG\r\n\x1a\n\0\0\0").unwrap();
+        write(&png, b"\x89PNG\r\n\x1a\n\0\0\0");
         let latin1 = dir.join("notes.txt");
-        fs::write(&latin1, b"caf\xe9").unwrap();
+        write(&latin1, b"caf\xe9");
 
         let mut files = Files::default();
         files.add([png.clone(), latin1.clone()], &redactor());
         let dtos = files.dto();
-        assert_eq!(dtos[0].status, "rejected");
-        assert_eq!(dtos[1].status, "rejected");
+        assert_eq!(dtos[0].status, "skipped");
+        assert_eq!(dtos[1].status, "skipped");
         assert!(files.save().is_empty());
         assert_eq!(fs::read(&png).unwrap(), b"\x89PNG\r\n\x1a\n\0\0\0");
         fs::remove_dir_all(dir).unwrap();
@@ -484,15 +731,14 @@ mod tests {
         let book = dir.join("Pagos.xlsx");
         let report: &[u8] =
             include_bytes!("../../../../crates/redactor-core/tests/xlsx/report.xlsx");
-        fs::write(&book, report).unwrap();
+        write(&book, report);
         let csv = dir.join("terceros.csv");
-        fs::write(
+        write(
             &csv,
             "Nombre;Cédula;Valor\nMaría Gómez;1020345678;1.250.000\n",
-        )
-        .unwrap();
+        );
         let old = dir.join("viejo.xls");
-        fs::write(&old, b"\xd0\xcf\x11\xe0").unwrap();
+        write(&old, b"\xd0\xcf\x11\xe0");
 
         let mut files = Files::default();
         files.add([book.clone(), csv.clone(), old], &redactor());
@@ -509,21 +755,26 @@ mod tests {
             (dtos[1].status, dtos[1].format.as_deref()),
             ("ready", Some("csv"))
         );
-        assert_eq!(dtos[2].status, "rejected");
+        assert_eq!(dtos[2].status, "skipped");
         assert!(files.text(dtos[0].id).unwrap().contains("| Fecha |"));
 
         files.save();
         assert_eq!(fs::read(&book).unwrap(), report, "original untouched");
-        let copy = fs::read(dir.join("Pagos.redacted.xlsx")).unwrap();
-        assert!(copy.starts_with(b"PK"));
+        assert!(
+            fs::read(dir.join("Pagos.redacted.xlsx"))
+                .unwrap()
+                .starts_with(b"PK")
+        );
         let csv_copy = fs::read_to_string(dir.join("terceros.redacted.csv")).unwrap();
         assert!(
             !csv_copy.contains("María") && !csv_copy.contains("1020345678"),
             "{csv_copy}"
         );
         assert!(csv_copy.contains("1.250.000"));
-        // The text version is still there after saving.
-        assert!(files.text(dtos[0].id).is_some());
+        assert!(
+            files.text(dtos[0].id).is_some(),
+            "text still there after saving"
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -531,11 +782,32 @@ mod tests {
     fn adding_the_same_file_again_updates_it() {
         let dir = temp_dir("again");
         let path = dir.join("notes.txt");
-        fs::write(&path, "Globex").unwrap();
+        write(&path, "Globex");
         let mut files = Files::default();
         files.add([path.clone()], &redactor());
         files.add([path.clone()], &redactor());
         assert_eq!(files.dto().len(), 1);
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn names_copies_safely() {
+        let r = redactor();
+        assert_eq!(copy_name(&r, "b.json"), "b.redacted.json");
+        assert_eq!(copy_name(&r, "notes"), "notes.redacted");
+        assert_eq!(copy_name(&r, "b.redacted.json"), "b.redacted.redacted.json");
+        assert_eq!(
+            clean_name(&r, "Globex_contrato.json"),
+            "CLIENT_contrato.json"
+        );
+        assert_eq!(clean_name(&r, "script.py"), "script.py");
+        assert_eq!(numbered("pagos.xlsx", 2), "pagos (2).xlsx");
+        assert_eq!(numbered("README", 3), "README (3)");
+        let users = Redactor::new(&Config {
+            users: vec!["qa.tester01".into()],
+            ..Default::default()
+        });
+        let name = clean_name(&users, "qa.tester01 notes.txt");
+        assert!(!name.contains('*') && !name.contains("tester01"), "{name}");
     }
 }

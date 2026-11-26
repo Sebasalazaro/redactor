@@ -39,7 +39,8 @@ contents), which is the place to look if the hotkey misbehaves.
     it), how many words the active profile hides, and *Files*: drop or choose
     Excel workbooks, CSV or text files (JSON, Postman collections, TXT,
     logs...) to get a redacted copy of each, `<name>.redacted.<ext>`, next to
-    the original. Excel and CSV are read as tables: columns titled like
+    the original, or a whole folder to get `<folder>.redacted/` with the same
+    tree. A dialog shows what will be created before anything is written. Excel and CSV are read as tables: columns titled like
     people or documents (`Nombre`, `Proveedor`, `NIT`, `Cédula`...) are
     masked whole, and *Copy as text* puts every sheet on the clipboard as a
     Markdown table.
