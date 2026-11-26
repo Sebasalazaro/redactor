@@ -38,6 +38,8 @@ serde_json = { version = "1", features = ["preserve_order"] }
 thiserror = "2"
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
 toml = "0.8"
+# Excel workbooks are ZIP files; deflate only, with zlib-rs (pure Rust).
+zip = { version = "9.8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [profile.release]
 lto = true

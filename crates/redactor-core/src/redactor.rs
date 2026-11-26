@@ -124,11 +124,14 @@ pub struct Redactor {
     sensitive_headers: HashSet<String>,
     pub(crate) sensitive_keys: HashSet<String>,
     allow_domains: Vec<String>,
+    /// The policy it was built from, to derive one with more terms.
+    config: Config,
 }
 
 impl Redactor {
     pub fn new(config: &Config) -> Self {
         Self {
+            config: config.clone(),
             masking: config.masking(),
             dict: Dictionary::new(&config.client, &config.users, &config.hosts, &config.terms),
             sensitive_headers: SENSITIVE_HEADERS
@@ -152,6 +155,18 @@ impl Redactor {
                 .chain(config.allow_domains.iter().map(|d| d.to_ascii_lowercase()))
                 .collect(),
         }
+    }
+
+    /// The same policy plus `people`, partially masked wherever they appear
+    /// (like configured users). Tables use it for names found in person
+    /// columns, so the same names are hidden in notes and comments too.
+    pub fn with_people(&self, people: Vec<String>) -> Self {
+        if people.is_empty() {
+            return Self::new(&self.config);
+        }
+        let mut config = self.config.clone();
+        config.users.extend(people);
+        Self::new(&config)
     }
 
     /// Redacts `input`, detecting its format first.

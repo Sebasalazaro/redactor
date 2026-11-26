@@ -26,8 +26,11 @@ pub mod mask;
 mod redactor;
 pub mod sitemap;
 pub mod store;
+pub mod table;
 mod tld;
 pub mod vault;
+#[cfg(feature = "xlsx")]
+pub mod xlsx;
 
 pub use config::{Config, ConfigError, CustomTerm, MaskingConfig};
 pub use dictionary::{CLIENT_PLACEHOLDER, DEFAULT_TERM_PLACEHOLDER};

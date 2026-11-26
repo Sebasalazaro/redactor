@@ -13,6 +13,8 @@ categories.workspace = true
 # Stores the vault key in the OS keychain (macOS Keychain, Windows
 # Credential Manager, Linux kernel keyring).
 keychain = ["dep:keyring"]
+# Redacts Excel workbooks (.xlsx).
+xlsx = ["dep:zip"]
 
 [dependencies]
 aes-gcm.workspace = true
@@ -25,3 +27,4 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 toml.workspace = true
+zip = { workspace = true, optional = true }
