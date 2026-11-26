@@ -169,6 +169,15 @@ impl Redactor {
         Self::new(&config)
     }
 
+    /// Replaces configured terms only (client names, custom terms, users,
+    /// listed hosts), without the pattern detectors. For short labels such
+    /// as file names, where `script.py` must not be read as a domain.
+    pub fn replace_terms(&self, text: &str) -> String {
+        self.dict
+            .replace_terms(text, self.masking.pii_keep)
+            .unwrap_or_else(|| text.to_string())
+    }
+
     /// Redacts `input`, detecting its format first.
     pub fn redact(&self, input: &str) -> Redaction {
         let format = InputFormat::detect(input);
