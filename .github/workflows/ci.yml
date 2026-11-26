@@ -46,7 +46,8 @@ jobs:
         working-directory: .
         run: mkdir -p target/debug/{,build/}{examples,deps}
       # Default members: redactor-core, redactor-cli and redactor-ner.
-      - run: cargo test --all-targets
+      # Excel support is a core feature only the desktop app turns on.
+      - run: cargo test --all-targets --features redactor-core/xlsx
       - run: cargo test --doc
 
   lint:
