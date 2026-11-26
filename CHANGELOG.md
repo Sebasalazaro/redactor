@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Desktop: redact whole folders. Drop or choose a folder and every file in
+  it is redacted into a sister folder with the same tree, `Cliente/` ->
+  `Cliente.redacted/`; files that cannot be redacted (PDF, images, binaries)
+  and tool folders (`.git`, `node_modules`) are left out and listed.
+- Desktop: everything you add opens a review dialog first: the tree of what
+  will be created, values hidden per file, what is left out and why, and a
+  preview of each file. Nothing is written until *Create*.
+
+### Changed
+- Desktop: file and folder names holding configured terms are redacted too
+  (`Globex_contrato.json` -> `CLIENT_contrato.json`).
+
 ## [0.6.0] - 2026-11-25
 
 ### Added
