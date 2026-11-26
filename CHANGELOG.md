@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-25
+
 ### Added
 - Excel workbooks (`.xlsx`) and CSV files are redacted as tables. Columns
   whose header names people or companies (`Nombre`, `Cliente`, `Proveedor`,
