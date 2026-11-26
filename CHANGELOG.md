@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-26
+
 ### Added
 - Desktop: redact whole folders. Drop or choose a folder and every file in
   it is redacted into a sister folder with the same tree, `Cliente/` ->
