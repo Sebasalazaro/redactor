@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Long JSON lists with the same structure are shortened before redacting
+  the clipboard: two entries are kept and a note says how many more there
+  were (`"… 48 more items like these"`), so the JSON stays valid. Lists of
+  plain values (ids, strings) count too. On by default (*Settings → Shorten
+  long lists*); the review popup's *Show all* brings everything back for that
+  redaction. Files and HAR, Burp or Postman exports are never shortened.
+  `redactor_core::shorten` holds the logic.
+
 ## [0.6.1] - 2026-11-26
 
 ### Added
