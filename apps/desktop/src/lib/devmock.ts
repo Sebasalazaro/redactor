@@ -29,6 +29,7 @@ const db = {
     unload_windows: true,
     launch_at_login: false,
     close_notice_shown: true,
+    shorten_lists: true,
   },
   global: config({
     client: ["Globex Bank"],
@@ -177,6 +178,7 @@ const handlers: Record<string, (a: Args) => unknown> = {
     ai_installed: false,
     engagement: null,
     segments: [{ kind: "plain", text: (a as { text: string }).text }],
+    shortened: null,
   }),
   vault_info: () => ({ profile: "globex-q3", entries: 12 }),
   restore_text: (a) => ({ parts: [{ kind: "plain", text: (a as { text: string }).text }] }),

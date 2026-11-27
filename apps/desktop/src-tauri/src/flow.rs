@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::clipboard;
+use crate::dto::ShortenedDto;
 use crate::state::{AppState, LastRedaction};
 use crate::vault::Pair;
 
@@ -28,11 +29,31 @@ pub fn redact_clipboard_in_background(app: &AppHandle) {
 pub fn redact_clipboard(app: &AppHandle) {
     let state = app.state::<AppState>();
     let text = clipboard::read(app);
-    let redaction = state.redactor().redact(&text);
-    drop(text);
+    let shortened = if state.settings().shorten_lists {
+        redactor_core::shorten::shorten_lists(&text)
+    } else {
+        None
+    };
+    let redaction = state.redactor().redact(
+        shortened
+            .as_ref()
+            .map_or(text.as_str(), |s| s.text.as_str()),
+    );
 
     if state.settings().review {
-        state.set_pending(Some(redaction));
+        match shortened {
+            Some(s) => {
+                let info = ShortenedDto {
+                    lists: s.lists,
+                    removed: s.removed,
+                };
+                state.set_pending_shortened(redaction, text, info);
+            }
+            None => {
+                drop(text);
+                state.set_pending(Some(redaction));
+            }
+        }
         show(app, REVIEW);
         let _ = app.emit_to(REVIEW, "review-ready", ());
     } else {

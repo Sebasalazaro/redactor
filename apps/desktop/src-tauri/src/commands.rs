@@ -8,7 +8,8 @@ use tauri_plugin_autostart::ManagerExt;
 use crate::clipboard;
 use crate::compare::{self, ComparisonDto};
 use crate::dto::{
-    EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, StatusDto, VaultDto,
+    EngagementDto, ForgottenDto, FreedDto, OverviewDto, ReviewDto, ShortenedDto, StatusDto,
+    VaultDto,
 };
 use crate::files::FileDto;
 use crate::flow::{self, DASHBOARD, REVIEW};
@@ -33,7 +34,20 @@ fn err(e: impl ToString) -> String {
 pub fn get_review(state: State<AppState>) -> Option<ReviewDto> {
     let engagement = state.settings().active_engagement;
     let ai = state.ai.installed();
-    state.with_pending(|pending| pending.map(|r| ReviewDto::new(r, engagement, ai)))
+    let shortened = state.pending_shortened();
+    state.with_pending(|pending| {
+        pending.map(|r| ReviewDto::new(r, engagement, ai).with_shortened(shortened))
+    })
+}
+
+/// Redacts the full clipboard text again, without shortening its lists.
+#[tauri::command]
+pub fn review_show_all(app: AppHandle, state: State<AppState>) -> CmdResult<()> {
+    let full = state.take_pending_full().ok_or("nothing was shortened")?;
+    let redaction = state.redactor().redact(&full);
+    state.set_pending(Some(redaction));
+    let _ = app.emit_to(REVIEW, "review-ready", ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -374,12 +388,25 @@ pub async fn save_compare_report(app: AppHandle) -> CmdResult<bool> {
 
 #[tauri::command]
 pub fn preview(state: State<AppState>, text: String) -> ReviewDto {
-    let redaction = state.redactor().redact(&text);
+    let shortened = if state.settings().shorten_lists {
+        redactor_core::shorten::shorten_lists(&text)
+    } else {
+        None
+    };
+    let redaction = state.redactor().redact(
+        shortened
+            .as_ref()
+            .map_or(text.as_str(), |s| s.text.as_str()),
+    );
     ReviewDto::new(
         &redaction,
         state.settings().active_engagement,
         state.ai.installed(),
     )
+    .with_shortened(shortened.map(|s| ShortenedDto {
+        lists: s.lists,
+        removed: s.removed,
+    }))
 }
 
 #[tauri::command]

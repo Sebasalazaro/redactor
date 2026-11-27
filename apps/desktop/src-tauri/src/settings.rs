@@ -34,6 +34,9 @@ pub struct AppSettings {
     pub launch_at_login: bool,
     /// The user has seen that closing the dashboard keeps the app running.
     pub close_notice_shown: bool,
+    /// Keep two entries of long JSON lists with the same shape, and say how
+    /// many were left out. Clipboard and Playground only, never files.
+    pub shorten_lists: bool,
 }
 
 impl Default for AppSettings {
@@ -49,6 +52,7 @@ impl Default for AppSettings {
             unload_windows: true,
             launch_at_login: false,
             close_notice_shown: false,
+            shorten_lists: true,
         }
     }
 }

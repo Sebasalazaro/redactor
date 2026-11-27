@@ -188,6 +188,16 @@
     {/if}
   </header>
 
+  {#if review?.shortened}
+    <div class="shortened" role="status">
+      <span>
+        {review.shortened.lists} long {review.shortened.lists === 1 ? "list" : "lists"} shortened,
+        {review.shortened.removed} similar {review.shortened.removed === 1 ? "entry" : "entries"} left out
+      </span>
+      <button class="link" onclick={() => api.reviewShowAll()}>Show all</button>
+    </div>
+  {/if}
+
   <section class="doc" bind:this={doc}>
     {#if !review}
       <p class="empty">Nothing to review. Copy some traffic and press the hotkey.</p>
@@ -237,8 +247,29 @@
 <style>
   main {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr auto;
     height: 100%;
+  }
+  .shortened {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .shortened .link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent-strong);
+    font: inherit;
+    cursor: pointer;
+  }
+  .shortened .link:hover {
+    text-decoration: underline;
   }
   header {
     padding: 14px 18px 10px;

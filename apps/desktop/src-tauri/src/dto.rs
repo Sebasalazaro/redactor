@@ -26,6 +26,14 @@ pub struct ReviewDto {
     pub ai_installed: bool,
     pub engagement: Option<String>,
     pub segments: Vec<SegmentDto>,
+    /// Long JSON lists were shortened before redacting.
+    pub shortened: Option<ShortenedDto>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct ShortenedDto {
+    pub lists: usize,
+    pub removed: usize,
 }
 
 impl ReviewDto {
@@ -47,7 +55,13 @@ impl ReviewDto {
             ai_installed,
             engagement,
             segments,
+            shortened: None,
         }
+    }
+
+    pub fn with_shortened(mut self, shortened: Option<ShortenedDto>) -> Self {
+        self.shortened = shortened;
+        self
     }
 }
 

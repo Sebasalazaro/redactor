@@ -83,6 +83,16 @@
     </div>
     <input type="checkbox" class="toggle" bind:checked={settings.review} />
   </div>
+  <div class="row">
+    <div>
+      <strong>Shorten long lists</strong>
+      <p>
+        When a JSON response repeats the same structure many times, keep two entries and say how many
+        more there were. The review popup can show everything again. Files are never shortened.
+      </p>
+    </div>
+    <input type="checkbox" class="toggle" bind:checked={settings.shorten_lists} />
+  </div>
 </div>
 
 <h4>Privacy</h4>

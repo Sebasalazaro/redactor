@@ -152,6 +152,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::get_review,
             commands::finish_review,
+            commands::review_show_all,
             commands::cancel_review,
             commands::mask_text,
             commands::get_overview,
