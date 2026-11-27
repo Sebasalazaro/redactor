@@ -27,6 +27,8 @@ export interface Review {
   ai_installed: boolean;
   engagement: string | null;
   segments: Segment[];
+  /** Long JSON lists were shortened before redacting. */
+  shortened: { lists: number; removed: number } | null;
 }
 
 export interface MaskingConfig {
@@ -63,6 +65,7 @@ export interface AppSettings {
   unload_windows: boolean;
   launch_at_login: boolean;
   close_notice_shown: boolean;
+  shorten_lists: boolean;
 }
 
 export interface Engagement {
@@ -214,6 +217,7 @@ export const api = {
   getReview: () => invoke<Review | null>("get_review"),
   finishReview: (text: string, pairs: Pair[]) => invoke<void>("finish_review", { text, pairs }),
   cancelReview: () => invoke<void>("cancel_review"),
+  reviewShowAll: () => invoke<void>("review_show_all"),
   maskText: (text: string) => invoke<string>("mask_text", { text }),
   deepScan: (text: string) => invoke<AiEntity[]>("deep_scan", { text }),
   getFiles: () => invoke<RedactedFile[]>("get_files"),

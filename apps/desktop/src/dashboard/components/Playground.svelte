@@ -30,7 +30,11 @@ X-Forwarded-For: 203.0.113.45
     <textarea bind:value={input} spellcheck="false"></textarea>
   </label>
   <div>
-    <span>Output · {count} redacted{result ? ` · ${result.format.replaceAll("_", " ")}` : ""}</span>
+    <span>
+      Output · {count} redacted{result ? ` · ${result.format.replaceAll("_", " ")}` : ""}{result?.shortened
+        ? ` · ${result.shortened.removed} similar list entries left out`
+        : ""}
+    </span>
     <pre>{#if result}{#each result.segments as s, i (i)}{#if s.kind === "plain"}{s.text}{:else}<mark
               class="redacted cat-{s.category}"
               title={CATEGORY_LABELS[s.category]}>{s.replacement}</mark

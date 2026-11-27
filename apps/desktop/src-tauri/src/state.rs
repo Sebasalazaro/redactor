@@ -13,6 +13,7 @@ use redactor_core::{Category, InputFormat, Redaction, Redactor, Store};
 
 use crate::ai::Ai;
 use crate::compare::Comparison;
+use crate::dto::ShortenedDto;
 use crate::files::Files;
 use crate::memory::{MemoryDto, Meter};
 use crate::settings::AppSettings;
@@ -73,6 +74,9 @@ pub struct AppState {
     redactor: Mutex<Arc<Redactor>>,
     /// Redaction waiting in the review popup.
     pending: Mutex<Option<Redaction>>,
+    /// The full clipboard text behind a pending redaction whose long lists
+    /// were shortened, for "Show all". Cleared with the pending redaction.
+    pending_full: Mutex<Option<(String, ShortenedDto)>>,
     last: Mutex<Option<LastRedaction>>,
     forgotten: Mutex<Option<(Forgotten, Instant)>>,
     meter: Mutex<Meter>,
@@ -108,6 +112,7 @@ impl AppState {
             settings: Mutex::new(settings),
             redactor: Mutex::new(Arc::new(Redactor::new(&Default::default()))),
             pending: Mutex::new(None),
+            pending_full: Mutex::new(None),
             last: Mutex::new(None),
             forgotten: Mutex::new(None),
             meter: Mutex::new(Meter::new()),
@@ -190,6 +195,22 @@ impl AppState {
 
     pub fn set_pending(&self, redaction: Option<Redaction>) {
         *lock(&self.pending) = redaction;
+        *lock(&self.pending_full) = None;
+    }
+
+    /// A pending redaction of shortened text, keeping the full text.
+    pub fn set_pending_shortened(&self, redaction: Redaction, full: String, info: ShortenedDto) {
+        *lock(&self.pending) = Some(redaction);
+        *lock(&self.pending_full) = Some((full, info));
+    }
+
+    pub fn pending_shortened(&self) -> Option<ShortenedDto> {
+        lock(&self.pending_full).as_ref().map(|(_, info)| *info)
+    }
+
+    /// The full text behind the pending redaction, once.
+    pub fn take_pending_full(&self) -> Option<String> {
+        lock(&self.pending_full).take().map(|(text, _)| text)
     }
 
     pub fn with_pending<T>(&self, f: impl FnOnce(Option<&Redaction>) -> T) -> T {
