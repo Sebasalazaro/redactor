@@ -3697,7 +3697,7 @@ dependencies = [
 
 [[package]]
 name = "redactor-cli"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "arboard",
@@ -3708,7 +3708,7 @@ dependencies = [
 
 [[package]]
 name = "redactor-core"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -3725,7 +3725,7 @@ dependencies = [
 
 [[package]]
 name = "redactor-desktop"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "arboard",
  "keyring",
@@ -3747,7 +3747,7 @@ dependencies = [
 
 [[package]]
 name = "redactor-ner"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "ort",
  "regex",

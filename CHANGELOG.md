@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-27
+
 ### Added
 - Long JSON lists with the same structure are shortened before redacting
   the clipboard: two entries are kept and a note says how many more there
